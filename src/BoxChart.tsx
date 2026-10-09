@@ -3,15 +3,15 @@ import Plotly from 'plotly.js-basic-dist-min'
 import type { MetricKey, Metrics } from './api'
 import { ExpandButton } from './Expand'
 import { card, cv, minorTicks, paperAxis, sectionLabel } from './ui'
+import './parameter-chart.css'
 
 type Dir = 'reverse' | 'forward'
 type Col = { label: string; scans: { name: Dir; m: Metrics }[] }
 type Metric = { key: MetricKey; label: string; unit: string }
 
-const INK = '#171717'
-const DIR_STYLE: Record<Dir, { name: string; color: string }> = {
-  forward: { name: 'Forward', color: '#c0392b' },
-  reverse: { name: 'Reverse', color: '#4a4a4a' },
+const DIR_STYLE: Record<Dir, { name: string; token: string }> = {
+  forward: { name: 'Forward', token: '--c-plot-forward' },
+  reverse: { name: 'Reverse', token: '--c-plot-reverse' },
 }
 
 export const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length
@@ -20,12 +20,6 @@ export const std = (values: number[]) => {
   if (values.length < 2) return 0
   const average = mean(values)
   return Math.sqrt(values.reduce((sum, value) => sum + (value - average) ** 2, 0) / (values.length - 1))
-}
-
-/** Deterministic pseudo-random horizontal offset in [-amp, amp]. */
-const jitter = (index: number, seed: number, amp: number) => {
-  const value = Math.sin((index + 1) * 12.9898 + seed * 78.233) * 43758.5453
-  return (value - Math.floor(value) - 0.5) * 2 * amp
 }
 
 const valid = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -49,35 +43,37 @@ export default function BoxChart({ metric, columns, dark }: { metric: Metric; co
 
   useEffect(() => {
     if (!ref.current) return
+    const ink = cv('--c-plot-ink')
+    const paper = cv('--c-plot-paper')
     const groups = groupValues(columns, metric.key)
     const dirs = (['forward', 'reverse'] as const).filter((d) => groups.some((g) => g[d].length))
     const offset = dirs.length > 1 ? 0.17 : 0
     const traces: any[] = []
 
     dirs.forEach((dir, di) => {
-      const { name, color } = DIR_STYLE[dir]
+      const { name, token } = DIR_STYLE[dir]
+      const color = cv(token)
       const shift = dirs.length > 1 ? (di === 0 ? -offset : offset) : 0
       const xs: number[] = []
       const ys: number[] = []
       const text: string[] = []
+      const errors: number[] = []
+      const counts: number[] = []
       groups.forEach((g, gi) => {
         const vals = g[dir]
-        const amp = vals.length > 1 ? 0.07 : 0
-        vals.forEach((v, vi) => {
-          xs.push(gi + shift + jitter(vi, gi * 2 + di, amp))
-          ys.push(v)
-          text.push(g.label)
-        })
-        if (vals.length >= 2) {
-          const m = mean(vals)
-          traces.push({ type: 'scatter', mode: 'lines', x: [gi + shift - 0.11, gi + shift + 0.11], y: [m, m], line: { color: INK, width: 1.4 }, hoverinfo: 'skip', showlegend: false })
-          traces.push({ type: 'scatter', mode: 'markers', x: [gi + shift], y: [m], marker: { size: 1, opacity: 0 }, error_y: { type: 'data', array: [std(vals)], color: INK, thickness: 1, width: 5 }, hovertemplate: `${name} mean %{y:.4g} ± ${std(vals).toPrecision(3)}<extra></extra>`, showlegend: false })
-        }
+        if (!vals.length) return
+        xs.push(gi + shift)
+        ys.push(mean(vals))
+        text.push(g.label)
+        errors.push(std(vals))
+        counts.push(vals.length)
       })
       traces.push({
-        type: 'scatter', mode: 'markers', name, x: xs, y: ys, text,
-        marker: { symbol: 'diamond', color, size: 9, line: { color: INK, width: 0.6 } },
-        hovertemplate: `<b>%{text}</b><br>${name}: %{y:.4g} ${metric.unit}<extra></extra>`,
+        type: 'bar', name, x: xs, y: ys, text, customdata: counts,
+        width: dirs.length > 1 ? 0.28 : 0.48,
+        marker: { color, line: { color: ink, width: 0.6 } },
+        error_y: { type: 'data', array: errors, visible: counts.some((n) => n >= 2), color: ink, thickness: 1.2, width: 6 },
+        hovertemplate: `<b>%{text}</b><br>${name}: %{y:.4g} ${metric.unit}<br>n = %{customdata}<extra></extra>`,
         showlegend: dirs.length > 1,
       })
     })
@@ -87,12 +83,12 @@ export default function BoxChart({ metric, columns, dark }: { metric: Metric; co
       ref.current,
       traces,
       {
-        paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff', margin: { l: 70, r: 18, t: 18, b: groups.some((g) => g.label.includes(' · ')) ? 68 : 50 },
-        font: { family: 'Arial, Helvetica, sans-serif', color: INK },
+        paper_bgcolor: paper, plot_bgcolor: paper, barmode: 'overlay', margin: { l: 84, r: 28, t: 48, b: groups.some((g) => g.label.includes(' · ')) ? 84 : 64 },
+        font: { family: 'Arial, sans-serif', color: ink },
         showlegend: dirs.length > 1,
-        legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.02, yanchor: 'bottom', font: { size: 12, color: INK }, bgcolor: 'rgba(0,0,0,0)' },
-        xaxis: { ...paperAxis(INK, INK), mirror: 'allticks', ticks: 'inside', ticklen: 6, tickwidth: 1.4, linewidth: 1.4, tickmode: 'array', tickvals: groups.map((_, i) => i), ticktext: groups.map((g) => wrapLabel(g.label)), tickangle: 0, range: [-0.6, n - 0.4], showgrid: false, tickfont: { family: 'Arial, Helvetica, sans-serif', size: 12, color: INK } },
-        yaxis: { ...paperAxis(INK, INK), mirror: 'allticks', ticks: 'inside', ticklen: 6, tickwidth: 1.4, linewidth: 1.4, showgrid: false, minor: minorTicks(INK), tickfont: { family: 'Arial, Helvetica, sans-serif', size: 12, color: INK }, title: { text: `${metric.label} (${metric.unit})`, font: { size: 15, color: INK } } },
+        legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.02, yanchor: 'bottom', font: { size: 12, color: ink } },
+        xaxis: { ...paperAxis(ink, ink), mirror: 'allticks', ticks: 'inside', ticklen: 8, tickwidth: 1.5, linewidth: 1.5, tickmode: 'array', tickvals: groups.map((_, i) => i), ticktext: groups.map((g) => wrapLabel(g.label)), tickangle: 0, range: [-0.6, n - 0.4], showgrid: false, tickfont: { family: 'Arial, sans-serif', size: 14, color: ink } },
+        yaxis: { ...paperAxis(ink, ink), mirror: 'allticks', ticks: 'inside', ticklen: 8, tickwidth: 1.5, linewidth: 1.5, showgrid: false, minor: minorTicks(ink), rangemode: 'tozero', tickfont: { family: 'Arial, sans-serif', size: 14, color: ink }, title: { text: `${metric.label} (${metric.unit})`, font: { family: 'Arial, sans-serif', size: 17, color: ink }, standoff: 12 } },
         hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: cv('--c-line'), font: { family: 'JetBrains Mono', size: 12, color: cv('--c-fg') } },
       },
       { displaylogo: false, responsive: true, displayModeBar: false },
@@ -114,7 +110,9 @@ export default function BoxChart({ metric, columns, dark }: { metric: Metric; co
         </div>
         <ExpandButton getEl={() => ref.current} title={`${metric.label} (${metric.unit})`} />
       </div>
-      <div ref={ref} className="w-full h-[300px] mt-2" />
+      <div className="overflow-x-auto mt-2">
+        <div ref={ref} className="w-full h-[400px] min-w-[420px]" />
+      </div>
     </div>
   )
 }
