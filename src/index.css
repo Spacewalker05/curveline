@@ -238,3 +238,9 @@ input[type='number'] {
   --c-plot-pixel-gold: #b58b00;
   --c-plot-pixel-magenta: #be3982;
 }
+
+.smooth-scroll {
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
