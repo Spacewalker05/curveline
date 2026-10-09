@@ -14,7 +14,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-from backend.analyze import analyze
+from backend.analyze import analyze, inspect
 
 FRONTEND = Path(__file__).parent / "streamlit_frontend"
 
@@ -28,6 +28,8 @@ if not (FRONTEND / "index.html").exists():
     st.error("Frontend not built. Run `pnpm build:streamlit` and commit the `streamlit_frontend` folder.")
     st.stop()
 
+HANDLERS = {"analyze": analyze, "inspect": inspect}
+
 jv_ui = components.declare_component("jv_ui", path=str(FRONTEND))
 
 response = st.session_state.get("response")
@@ -36,7 +38,7 @@ request = jv_ui(response=response, key="jv", default=None)
 if request and request.get("id") != st.session_state.get("handled_id"):
     st.session_state["handled_id"] = request["id"]
     try:
-        st.session_state["response"] = {"id": request["id"], "result": analyze(request["files"], request["params"])}
+        st.session_state["response"] = {"id": request["id"], "result": HANDLERS[request.get("kind", "analyze")](request["files"], request.get("params") or {})}
     except Exception as exc:
         st.session_state["response"] = {"id": request["id"], "error": str(exc)}
     st.rerun()

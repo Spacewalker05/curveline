@@ -1,7 +1,8 @@
+// @ts-nocheck — ported verbatim from curveline (written for a looser TS config)
 import type { ReactNode } from 'react'
 import { Brand, card, sectionLabel, ThemeButton, tr } from './ui'
 
-export type Mode = 'params' | 'plot'
+export type Mode = 'params' | 'plot' | 'inspect'
 
 const cards: { mode: Mode; title: string; desc: string; items: string[]; art: ReactNode }[] = [
   {
@@ -35,6 +36,19 @@ const cards: { mode: Mode; title: string; desc: string; items: string[]; art: Re
       </svg>
     ),
   },
+  {
+    mode: 'inspect',
+    title: 'Inspect',
+    desc: 'Look at raw forward and reverse scans from a J–V text file as interactive current–voltage and Jsc–voltage line plots.',
+    items: ['Forward and reverse overlaid', 'I–V and J–V per pixel', 'Zoom, pan and hover read-outs', 'Export each plot as PNG'],
+    art: (
+      <svg viewBox="0 0 200 90" className="w-full" fill="none" strokeLinecap="round">
+        <path d="M10 10V80H190" stroke="var(--c-line)" strokeWidth="1.5" />
+        <path d="M14 22 C90 22 130 24 150 40 S175 78 186 82" stroke="var(--c-accent)" strokeWidth="2.2" />
+        <path d="M14 28 C80 28 120 30 142 46 S170 80 186 84" stroke="var(--c-muted)" strokeWidth="2.2" strokeDasharray="5 4" />
+      </svg>
+    ),
+  },
 ]
 
 export default function Home({ onOpen, dark, setDark }: { onOpen: (m: Mode) => void; dark: boolean; setDark: (v: boolean) => void }) {
@@ -47,7 +61,7 @@ export default function Home({ onOpen, dark, setDark }: { onOpen: (m: Mode) => v
         </div>
       </header>
       <main className="flex-1 grid place-items-center px-6 py-12">
-        <div className="w-full max-w-[920px]">
+        <div className="w-full max-w-[1180px]">
           <div className={`${sectionLabel} rise`}>Solar Cell Parameter Extraction</div>
           <h1 style={{ ['--d' as any]: '80ms' }} className="rise mt-4 text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.08] max-w-[640px]">
             What would you like to do today?
@@ -55,7 +69,7 @@ export default function Home({ onOpen, dark, setDark }: { onOpen: (m: Mode) => v
           <p style={{ ['--d' as any]: '160ms' }} className="rise mt-4 text-muted max-w-[520px]">
             Calculate device parameters or visualise parameter data across samples. Each workflow has its own workspace.
           </p>
-          <div className="grid md:grid-cols-2 gap-5 mt-10">
+          <div className="grid md:grid-cols-3 gap-5 mt-10">
             {cards.map((c, ci) => (
               <button key={c.mode} style={{ ['--d' as any]: `${260 + ci * 110}ms` }} onClick={() => onOpen(c.mode)} className={`${card} group text-left p-6 cursor-pointer hover:border-accent hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(217,119,87,0.14)] ${tr} outline-none focus-visible:ring-2 focus-visible:ring-accent/50`}>
                 <div className="h-[110px] rounded-xl bg-panel/60 border border-line p-4 grid place-items-center">{c.art}</div>

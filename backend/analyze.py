@@ -11,7 +11,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .jv_analysis_core import run_multi_analysis
+from .jv_analysis_core import (
+    I_CANDIDATES, V_CANDIDATES, find_all_column_pairs, find_column, load_file, run_multi_analysis,
+)
 
 KEYMAP = {
     "PCE (%)": "pce", "Voc (V)": "voc", "Isc (mA)": "isc", "Imp (mA)": "imp", "Jsc (mA/cm2)": "jsc", "FF (%)": "ff",
@@ -147,3 +149,66 @@ def analyze(files: list, params: dict) -> dict:
             "csv": _data_url(long_df.to_csv(index=False).encode(), "text/csv"),
         },
     }
+
+
+# ── Inspect: raw forward / reverse sweeps for line plots ─────────────────────
+
+def _split_sweeps(df, min_points):
+    """Same turning-point rule as jv_analysis_core.run_analysis."""
+    V = df["V"].to_numpy()
+    n = len(V)
+    turning = []
+    if n >= 4:
+        signs = np.sign(np.diff(V))
+        i = 1
+        while i < len(signs):
+            if signs[i] != 0 and signs[i - 1] != 0 and signs[i] != signs[i - 1]:
+                run, j = 1, i + 1
+                while j < len(signs) and (signs[j] == signs[i] or signs[j] == 0):
+                    run += 1
+                    j += 1
+                if run >= max(2, min_points - 1):
+                    turning.append(i)
+                    break
+            i += 1
+        if not turning:
+            turning = [k for k in (int(np.argmax(V)), int(np.argmin(V))) if 0 < k < n - 1]
+
+    pack = lambda d: {"V": [float(x) for x in d["V"]], "I": [float(x) for x in d["I"]]}
+    if not turning:
+        return {"single": pack(df)}
+    split = min(turning) + 1
+    s1, s2 = df.iloc[:split], df.iloc[split:]
+    if s1["V"].iloc[0] > s1["V"].iloc[-1]:
+        return {"reverse": pack(s1), "forward": pack(s2)}
+    return {"forward": pack(s1), "reverse": pack(s2)}
+
+
+def inspect(files: list, params: dict) -> dict:
+    """files: [{'name', 'data'}] -> {'files': [{'name', 'pixels': [{'label', 'forward'|'reverse'|'single': {'V','I'}}]}]}"""
+    min_points = int((params or {}).get("min_points", 10))
+    out = []
+    for f in files:
+        name = f["name"]
+        with tempfile.NamedTemporaryFile(suffix=Path(name).suffix or ".csv", delete=False) as tmp:
+            tmp.write(base64.b64decode(f["data"]))
+            path = tmp.name
+        try:
+            raw = load_file(path)
+            pairs = find_all_column_pairs(raw)
+            if not pairs:
+                v, i = find_column(raw, V_CANDIDATES), find_column(raw, I_CANDIDATES)
+                if v is None or i is None:
+                    raise ValueError("No voltage / current columns found in this file.")
+                pairs = [(v, i, "")]
+            pixels = []
+            for v, i, label in pairs:
+                df = raw[[v, i]].apply(pd.to_numeric, errors="coerce").dropna().reset_index(drop=True)
+                df.columns = ["V", "I"]
+                pixels.append({"label": label, **_split_sweeps(df, min_points)})
+            out.append({"name": name, "pixels": pixels})
+        except Exception as exc:
+            out.append({"name": name, "pixels": [], "error": str(exc)})
+        finally:
+            os.unlink(path)
+    return {"files": out}

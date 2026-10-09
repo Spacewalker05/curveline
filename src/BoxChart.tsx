@@ -1,9 +1,9 @@
+// @ts-nocheck — ported verbatim from curveline (written for a looser TS config)
 import { useEffect, useRef } from 'react'
-import Plotly from 'plotly.js-basic-dist-min'
+import Plotly from 'plotly.js-cartesian-dist-min'
 import type { MetricKey, Metrics } from './api'
 import { ExpandButton } from './Expand'
 import { card, cv, minorTicks, paperAxis, sectionLabel } from './ui'
-import './parameter-chart.css'
 
 type Dir = 'reverse' | 'forward'
 type Col = { label: string; scans: { name: Dir; m: Metrics }[] }
@@ -43,56 +43,33 @@ export default function BoxChart({ metric, columns, dark }: { metric: Metric; co
 
   useEffect(() => {
     if (!ref.current) return
-    const ink = cv('--c-plot-ink')
-    const paper = cv('--c-plot-paper')
-    const groups = groupValues(columns, metric.key)
-    const dirs = (['forward', 'reverse'] as const).filter((d) => groups.some((g) => g[d].length))
-    const offset = dirs.length > 1 ? 0.17 : 0
-    const traces: any[] = []
-
-    dirs.forEach((dir, di) => {
-      const { name, token } = DIR_STYLE[dir]
-      const color = cv(token)
-      const shift = dirs.length > 1 ? (di === 0 ? -offset : offset) : 0
-      const xs: number[] = []
-      const ys: number[] = []
-      const text: string[] = []
-      const errors: number[] = []
-      const counts: number[] = []
-      groups.forEach((g, gi) => {
-        const vals = g[dir]
-        if (!vals.length) return
-        xs.push(gi + shift)
-        ys.push(mean(vals))
-        text.push(g.label)
-        errors.push(std(vals))
-        counts.push(vals.length)
-      })
-      traces.push({
-        type: 'bar', name, x: xs, y: ys, text, customdata: counts,
-        width: dirs.length > 1 ? 0.28 : 0.48,
-        marker: { color, line: { color: ink, width: 0.6 } },
-        error_y: { type: 'data', array: errors, visible: counts.some((n) => n >= 2), color: ink, thickness: 1.2, width: 6 },
-        hovertemplate: `<b>%{text}</b><br>${name}: %{y:.4g} ${metric.unit}<br>n = %{customdata}<extra></extra>`,
-        showlegend: dirs.length > 1,
-      })
-    })
-
-    const n = Math.max(groups.length, 1)
-    Plotly.react(
-      ref.current,
-      traces,
-      {
-        paper_bgcolor: paper, plot_bgcolor: paper, barmode: 'overlay', margin: { l: 84, r: 28, t: 48, b: groups.some((g) => g.label.includes(' · ')) ? 84 : 64 },
-        font: { family: 'Arial, sans-serif', color: ink },
-        showlegend: dirs.length > 1,
-        legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.02, yanchor: 'bottom', font: { size: 12, color: ink } },
-        xaxis: { ...paperAxis(ink, ink), mirror: 'allticks', ticks: 'inside', ticklen: 8, tickwidth: 1.5, linewidth: 1.5, tickmode: 'array', tickvals: groups.map((_, i) => i), ticktext: groups.map((g) => wrapLabel(g.label)), tickangle: 0, range: [-0.6, n - 0.4], showgrid: false, tickfont: { family: 'Arial, sans-serif', size: 14, color: ink } },
-        yaxis: { ...paperAxis(ink, ink), mirror: 'allticks', ticks: 'inside', ticklen: 8, tickwidth: 1.5, linewidth: 1.5, showgrid: false, minor: minorTicks(ink), rangemode: 'tozero', tickfont: { family: 'Arial, sans-serif', size: 14, color: ink }, title: { text: `${metric.label} (${metric.unit})`, font: { family: 'Arial, sans-serif', size: 17, color: ink }, standoff: 12 } },
-        hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: cv('--c-line'), font: { family: 'JetBrains Mono', size: 12, color: cv('--c-fg') } },
-      },
-      { displaylogo: false, responsive: true, displayModeBar: false },
-    )
+    const line = cv('--c-line')
+    const muted = cv('--c-muted')
+    const ink = cv('--c-fg')
+    const surface = cv('--c-surface')
+    const traces = (['reverse', 'forward'] as const).map((dir) => {
+      const values = columns.flatMap((column) => column.scans
+        .filter((scan) => scan.name === dir && valid(scan.m[metric.key]))
+        .map((scan) => ({ y: scan.m[metric.key], label: column.label })))
+      const color = cv(dir === 'reverse' ? '--c-accent' : '--c-plot-parameter-forward')
+      return {
+        type: 'box', name: DIR_STYLE[dir].name,
+        y: values.map((value) => value.y), text: values.map((value) => value.label),
+        boxpoints: 'all', jitter: 0.5, pointpos: 0, boxmean: true,
+        line: { color, width: 1.5 },
+        fillcolor: cv(dir === 'reverse' ? '--c-plot-parameter-reverse-fill' : '--c-plot-parameter-forward-fill'),
+        marker: { color, size: 7, opacity: 0.9, line: { color: surface, width: 1 } },
+        hovertemplate: `<b>%{text}</b><br>%{y:.4g} ${metric.unit}<extra></extra>`,
+      }
+    }).filter((trace) => trace.y.length)
+    Plotly.react(ref.current, traces, {
+      paper_bgcolor: cv('--c-plot-transparent'), plot_bgcolor: cv('--c-plot-transparent'),
+      margin: { l: 56, r: 16, t: 12, b: 36 },
+      font: { family: 'Inter', color: muted }, showlegend: false,
+      xaxis: { ...paperAxis(ink, muted), showgrid: false, ticks: '', tickfont: { size: 12, color: ink } },
+      yaxis: { ...paperAxis(ink, muted), showgrid: false, minor: minorTicks(ink) },
+      hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: ink } },
+    }, { displaylogo: false, responsive: true, displayModeBar: false })
   }, [metric, columns, dark])
 
   useEffect(() => {

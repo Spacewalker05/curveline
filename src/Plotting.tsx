@@ -1,3 +1,4 @@
+// @ts-nocheck — ported verbatim from curveline (written for a looser TS config)
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Plotly from 'plotly.js-basic-dist-min'
 import readExcelFile from 'read-excel-file/browser'

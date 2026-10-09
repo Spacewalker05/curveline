@@ -222,3 +222,19 @@ input[type='number'] {
   .analysing-dot:nth-child(4) { transform: translateX(106px); }
   .analysing-dot:nth-child(5) { transform: translateX(126px); }
 }
+:root {
+  --c-plot-paper: #ffffff;
+  --c-plot-transparent: transparent;
+  --c-plot-parameter-forward: #6a8caf;
+  --c-plot-parameter-forward-fill: #6a8caf26;
+  --c-plot-parameter-reverse-fill: #d9775726;
+  --c-plot-ink: #171717;
+  --c-plot-grid: #17171733;
+  --c-plot-grid-minor: #17171714;
+  --c-plot-forward: #f04444;
+  --c-plot-reverse: #555555;
+  --c-plot-pixel-green: #00a84a;
+  --c-plot-pixel-blue: #2278c9;
+  --c-plot-pixel-gold: #b58b00;
+  --c-plot-pixel-magenta: #be3982;
+}

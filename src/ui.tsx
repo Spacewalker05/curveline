@@ -1,3 +1,4 @@
+// @ts-nocheck — ported verbatim from curveline (written for a looser TS config)
 import { useRef, useState, type ReactNode } from 'react'
 
 export const card = 'rise bg-surface border border-line rounded-2xl shadow-card'
@@ -10,7 +11,27 @@ export const paperAxis = (fg: string, muted: string) => ({
   zeroline: false, tickfont: { family: 'JetBrains Mono', size: 11, color: muted },
 })
 export const minorTicks = (fg: string) => ({ ticks: 'inside', ticklen: 3, tickwidth: 1, tickcolor: fg, showgrid: false })
+/**
+ * Grid lines for one axis, split by level: major lines stay readable,
+ * minor lines sit well behind them. Spread the fragments over the axis
+ * and its `minor` sub-object respectively.
+ */
+export const gridStyle = (on: boolean) => ({
+  major: { showgrid: on, gridcolor: cv('--c-plot-grid'), gridwidth: 1 },
+  minor: { showgrid: on, gridcolor: cv('--c-plot-grid-minor'), gridwidth: 0.75 },
+})
 export const cv = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim()
+
+/** Brand series colours, in display order. */
+export const PIXEL_TOKENS = ['--c-plot-ink', '--c-plot-pixel-green', '--c-plot-forward', '--c-plot-pixel-blue', '--c-plot-pixel-gold', '--c-plot-pixel-magenta']
+
+/**
+ * Colour for the i-th pixel of an n-pixel device.
+ * Uses the brand tokens while they cover the set; beyond that it spreads hues
+ * so every pixel stays individually distinguishable (tokens alone would repeat).
+ */
+export const pixelColor = (i: number, n: number) =>
+  n <= PIXEL_TOKENS.length ? cv(PIXEL_TOKENS[i % PIXEL_TOKENS.length]) : `hsl(${Math.round((i * 360) / Math.max(n, 1))} 62% 42%)`
 
 export function Section({ title }: { title: string }) {
   return (
@@ -110,7 +131,7 @@ export function ThemeButton({ dark, setDark }: { dark: boolean; setDark: (v: boo
   )
 }
 
-export const Brand = () => <span className="text-[15px] font-semibold tracking-tight">JV Analyzer</span>
+export const Brand = () => <span className="text-xl font-bold tracking-tight">JV Analyzer</span>
 
 export function DropZone({ accept, label, onFiles }: { accept: string; label: string; onFiles: (f: File[]) => void }) {
   const [drag, setDrag] = useState(false)

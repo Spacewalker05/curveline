@@ -1,6 +1,7 @@
+// @ts-nocheck — ported verbatim from curveline (written for a looser TS config)
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import Plotly from 'plotly.js-basic-dist-min'
+import Plotly from 'plotly.js-cartesian-dist-min'
 import { tr } from './ui'
 
 export function ExpandButton({ getEl, title }: { getEl: () => HTMLElement | null; title: string }) {

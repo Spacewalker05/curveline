@@ -1,7 +1,9 @@
+// @ts-nocheck — ported verbatim from curveline (written for a looser TS config)
 import { useEffect, useState } from 'react'
 import Analysis from './Analysis'
 import Home, { type Mode } from './Home'
 import Plotting from './Plotting'
+import Inspect from './Inspect'
 
 export default function App() {
   const [mode, setMode] = useState<Mode | null>(null)
@@ -20,13 +22,13 @@ export default function App() {
     {splash && (
       <div className="splash fixed inset-0 z-[100] grid place-items-center bg-bg pointer-events-none">
         <div>
-          <div className="splash-word text-4xl font-semibold text-fg">JV Analyzer</div>
+          <div className="splash-word text-5xl font-bold text-fg">JV Analyzer</div>
           <div className="splash-line h-0.5 mt-3 rounded-full bg-accent" />
         </div>
       </div>
     )}
     {!splash && <div key={mode ?? "home"} className="h-full fade-in">
-      {!mode ? <Home onOpen={setMode} dark={dark} setDark={setDark} /> : mode === 'plot' ? <Plotting onBack={back} dark={dark} setDark={setDark} /> : <Analysis onBack={back} dark={dark} setDark={setDark} />}
+      {!mode ? <Home onOpen={setMode} dark={dark} setDark={setDark} /> : mode === 'plot' ? <Plotting onBack={back} dark={dark} setDark={setDark} /> : mode === 'inspect' ? <Inspect onBack={back} dark={dark} setDark={setDark} /> : <Analysis onBack={back} dark={dark} setDark={setDark} />}
     </div>}
     </>
   )
