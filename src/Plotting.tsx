@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Plotly from 'plotly.js-basic-dist-min'
 import readExcelFile from 'read-excel-file/browser'
 import { ExpandButton } from './Expand'
-import { card, Check, cv, minorTicks, paperAxis, DropZone, FileChips, primaryBtn, Section, sectionLabel, Shell, Toggle, tr } from './ui'
+import { card, Check, cv, minorTicks, DropZone, FileChips, primaryBtn, Section, sectionLabel, Shell, Toggle, tr } from './ui'
 
 type Series = { sample: string; labels: string[]; fwd: (number | null)[]; rev: (number | null)[] | null }
 type Block = { param: string; series: Series[] }
@@ -120,7 +120,15 @@ function parseRows(rows: any[][], fileName: string): Dataset {
   return { file: name, labels, cols, blocks }
 }
 
-const seriesColors = () => [cv('--c-accent'), '#6a8caf', '#8a9a5b', '#9b7bb4', '#c9a227', cv('--c-muted')]
+const ORIGIN_COLORS = ['#555555', '#f04444', '#176fd1', '#35ad72', '#ad69d5', '#c99500', '#08b9c1', '#80514d', '#df7b18', '#6a8caf']
+const seriesColors = () => ORIGIN_COLORS
+
+const originAxis = (title?: string) => ({
+  color: '#171717', linecolor: '#171717', linewidth: 1.5, mirror: 'allticks', showline: true,
+  ticks: 'inside', ticklen: 8, tickwidth: 1.5, tickcolor: '#171717', zeroline: false,
+  tickfont: { family: 'Arial, sans-serif', size: 14, color: '#171717' },
+  title: title ? { text: title, font: { family: 'Arial, sans-serif', size: 17, color: '#171717' }, standoff: 12 } : undefined,
+})
 
 function jitter(i: number, n: number) {
   const x = Math.sin((i + 1) * 12.9898 + n * 78.233) * 43758.5453
@@ -139,23 +147,20 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
     const line = cv('--c-line')
     const muted = cv('--c-muted')
     const fg = cv('--c-fg')
-    const surface = cv('--c-surface')
     const colors = seriesColors()
     const n = params.length
     const gap = 0.05
     const traces: any[] = []
     const layout: any = {
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
+      paper_bgcolor: '#ffffff',
+      plot_bgcolor: '#ffffff',
       margin: { l: 64, r: 28, t: 64, b: 84 },
-      font: { family: 'Inter', color: muted },
+      font: { family: 'Arial, sans-serif', color: '#171717' },
       showlegend: mode === 'combined',
       legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.14, font: { size: 11, color: fg } },
       hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
       annotations: [],
     }
-    const ax = paperAxis(fg, muted)
-
     params.forEach((p, k) => {
       const sfx = k === 0 ? '' : String(k + 1)
       const d0 = k / n + (k === 0 ? 0 : gap / 2)
@@ -169,11 +174,11 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
         const vals = idx.map((q) => q.y)
         const m = mean(vals)
         const base = { type: 'scatter', xaxis: 'x' + sfx, yaxis: 'y' + sfx }
-        const marker = { symbol: 'diamond', size: opts.size, color: col, opacity: 0.9, line: { color: surface, width: 1.5 } }
+        const marker = { symbol: 'diamond', size: opts.size, color: col, opacity: 1, line: { color: col, width: 0.5 } }
         if (mode === 'file') {
           idx.forEach((q) => ticks.push({ v: q.i, t: d.labels[q.i] }))
           traces.push({ ...base, mode: 'markers', x: idx.map((q) => q.i), y: vals, text: idx.map((q) => d.labels[q.i]), marker, hovertemplate: '<b>%{text}</b><br>%{y:.4g}<extra>' + p + '</extra>', showlegend: false })
-          if (opts.meanLine) traces.push({ ...base, mode: 'lines', x: [-0.6, d.labels.length - 0.4], y: [m, m], line: { color: col, width: 1.25, dash: 'dash' }, hoverinfo: 'skip', showlegend: false })
+          if (opts.meanLine) traces.push({ ...base, mode: 'lines', x: [-0.34, d.labels.length - 0.66], y: [m, m], line: { color: '#555555', width: 1.2 }, hoverinfo: 'skip', showlegend: false })
         } else {
           ticks.push({ v: gi, t: d.file })
           traces.push({ ...base, mode: 'markers', x: idx.map((q) => gi + jitter(q.i, gi)), y: vals, text: idx.map((q) => d.labels[q.i]), name: d.file, legendgroup: d.file, marker, hovertemplate: '<b>%{text}</b><br>' + d.file + '<br>%{y:.4g}<extra>' + p + '</extra>', showlegend: k === 0 })
@@ -183,8 +188,8 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
       })
       const count = mode === 'file' ? Math.max(...groups.map((d) => d.labels.length)) : groups.length
       const uniq = ticks.filter((t, i, arr) => arr.findIndex((u) => u.v === t.v) === i)
-      layout['xaxis' + sfx] = { ...ax, domain: [d0, d1], anchor: 'y' + sfx, showgrid: false, tickmode: 'array', tickvals: uniq.map((t) => t.v), ticktext: uniq.map((t) => t.t), tickangle: uniq.length > 4 || mode === 'file' ? -35 : 0, range: [-0.6, count - 0.4] }
-      layout['yaxis' + sfx] = { ...ax, domain: [0, 1], anchor: 'x' + sfx, showgrid: opts.grid, gridcolor: line, minor: minorTicks(fg) }
+      layout['xaxis' + sfx] = { ...originAxis(), domain: [d0, d1], anchor: 'y' + sfx, showgrid: false, tickmode: 'array', tickvals: uniq.map((t) => t.v), ticktext: uniq.map((t) => t.t), tickangle: 0, range: [-0.6, count - 0.4] }
+      layout['yaxis' + sfx] = { ...originAxis(p), domain: [0, 1], anchor: 'x' + sfx, showgrid: opts.grid, gridcolor: '#dddddd', minor: minorTicks('#171717') }
       layout.annotations.push({ text: p, xref: 'paper', yref: 'paper', x: (d0 + d1) / 2, y: 1.02, xanchor: 'center', yanchor: 'bottom', showarrow: false, font: { size: 12, color: muted } })
     })
     Plotly.react(ref.current, traces, layout, { displaylogo: false, responsive: true, displayModeBar: false })
@@ -198,10 +203,9 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
   }, [])
 
   const png = async () => {
-    const bg = cv('--c-surface')
-    await Plotly.relayout(ref.current, { paper_bgcolor: bg, plot_bgcolor: bg })
+    await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
     await Plotly.downloadImage(ref.current, { format: 'png', width, height: 800, scale: 2, filename: safe(title) })
-    await Plotly.relayout(ref.current, { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)' })
+    await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
   }
 
   return (
@@ -284,7 +288,7 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
     const fg = cv('--c-fg')
     const surface = cv('--c-surface')
     if (multi) {
-      const REF = ['#4d4d4d', '#f23c3c', '#1565e0', '#2eaa6a', '#b36be0', '#c99700', '#00bfbf', '#7a3f3f', '#e07b00', '#6a8caf']
+      const REF = ORIGIN_COLORS
       const traces: any[] = []
       cats.forEach((c, ci) => {
         const pts = entries.filter((e) => e.ci === ci)
@@ -300,11 +304,11 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         ref.current,
         traces,
         {
-          paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: false,
-          margin: { l: 84, r: 28, t: 28, b: 64 }, font: { family: 'Inter', color: fg },
+          paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff', showlegend: false,
+          margin: { l: 84, r: 28, t: 28, b: 64 }, font: { family: 'Arial, sans-serif', color: '#171717' },
           hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
-          xaxis: { ...paperAxis(fg, fg), showgrid: false, ticks: 'inside', tickmode: 'array', tickvals: cats.map((_, i) => i), ticktext: cats.map((c) => c.label), range: [-0.6, cats.length - 0.4], tickfont: { family: 'Inter', size: 13, color: fg } },
-          yaxis: { ...paperAxis(fg, muted), showgrid: opts.grid, gridcolor: line, minor: minorTicks(fg), title: { text: block.param, font: { size: 15, color: fg }, standoff: 10 }, tickfont: { family: 'Inter', size: 13, color: fg } },
+          xaxis: { ...originAxis(), showgrid: false, tickmode: 'array', tickvals: cats.map((_, i) => i), ticktext: cats.map((c) => c.label), range: [-0.6, cats.length - 0.4] },
+          yaxis: { ...originAxis(block.param), showgrid: opts.grid, gridcolor: '#dddddd', minor: minorTicks('#171717') },
         },
         { displaylogo: false, responsive: true, displayModeBar: false },
       )
@@ -326,7 +330,7 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         type: 'scatter', mode: 'markers', name: g.name,
         x: g.pts.map((p) => p.x), y: g.pts.map((p) => p.y),
         text: g.pts.map((p) => (kind === 'both' ? `${p.label} ${p.dir}` : p.label)),
-        marker: { symbol: 'diamond', size: opts.size, color: g.color, opacity: 0.85, line: { color: surface, width: 1.5 } },
+        marker: { symbol: 'diamond', size: opts.size, color: g.color, opacity: 1, line: { color: g.color, width: 0.5 } },
         hovertemplate: '<b>%{text}</b><br>%{y:.4g}<extra>' + block.param + '</extra>',
         showlegend: !bySample && groups.size > 1,
       })
@@ -361,15 +365,15 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
       ref.current,
       traces,
       {
-        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff',
         margin: { l: 60, r: 24, t: 64, b: 96 },
-        font: { family: 'Inter', color: muted },
+        font: { family: 'Arial, sans-serif', color: '#171717' },
         showlegend: !bySample && groups.size > 1,
         legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.14, font: { size: 11, color: fg } },
         hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
         annotations: [{ text: block.param, xref: 'paper', yref: 'paper', x: 0, y: 1.02, xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 12, color: muted } }],
-        xaxis: { ...paperAxis(fg, muted), showgrid: false, tickmode: 'array', tickvals, ticktext, tickangle: multi ? 0 : -35, range },
-        yaxis: { ...paperAxis(fg, muted), showgrid: opts.grid, gridcolor: line, minor: minorTicks(fg) },
+        xaxis: { ...originAxis(), showgrid: false, tickmode: 'array', tickvals, ticktext, tickangle: 0, range },
+        yaxis: { ...originAxis(block.param), showgrid: opts.grid, gridcolor: '#dddddd', minor: minorTicks('#171717') },
       },
       { displaylogo: false, responsive: true, displayModeBar: false },
     )
@@ -383,10 +387,9 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
   }, [])
 
   const png = async () => {
-    const bg = cv('--c-surface')
-    await Plotly.relayout(ref.current, { paper_bgcolor: bg, plot_bgcolor: bg })
+    await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
     await Plotly.downloadImage(ref.current, { format: 'png', width, height: 800, scale: 2, filename: safe(title) })
-    await Plotly.relayout(ref.current, { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)' })
+    await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
   }
 
   return (
@@ -438,10 +441,9 @@ export default function Plotting({ onBack, dark, setDark }: { onBack: () => void
 
   const downloadAll = async () => {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>('[data-plot]'))) {
-      const bg = cv('--c-surface')
-      await Plotly.relayout(el, { paper_bgcolor: bg, plot_bgcolor: bg })
+      await Plotly.relayout(el, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
       await Plotly.downloadImage(el, { format: 'png', width: +(el.dataset.w || 1400), height: 800, scale: 2, filename: el.dataset.plot || 'plot' })
-      await Plotly.relayout(el, { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)' })
+      await Plotly.relayout(el, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
       await new Promise((r) => setTimeout(r, 250))
     }
   }
