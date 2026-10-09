@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
 import { runAnalysis, type AnalysisResponse, type MetricKey, type Metrics, type Pixel } from './api'
+import BoxChart from './BoxChart'
 import { card, DropZone, Field, FileChips, primaryBtn, Section, sectionLabel, Shell, TextField, Toggle, tr } from './ui'
 
 const METRICS: { key: MetricKey; label: string; unit: string; dp: number; adv?: boolean }[] = [
-  { key: 'pce', label: 'PCE', unit: '%', dp: 2 },
   { key: 'voc', label: 'Voc', unit: 'V', dp: 3 },
+  { key: 'isc', label: 'Isc', unit: 'mA', dp: 3 },
   { key: 'jsc', label: 'Jsc', unit: 'mA/cm²', dp: 2 },
   { key: 'ff', label: 'FF', unit: '%', dp: 2 },
-  { key: 'pmax', label: 'Pmax', unit: 'mW', dp: 2 },
-  { key: 'vmpp', label: 'Vmpp', unit: 'V', dp: 3 },
-  { key: 'jmpp', label: 'Jmpp', unit: 'mA/cm²', dp: 2 },
-  { key: 'rs', label: 'Rs', unit: 'Ω·cm²', dp: 2, adv: true },
-  { key: 'rsh', label: 'Rsh', unit: 'Ω·cm²', dp: 0, adv: true },
+  { key: 'pce', label: 'PCE', unit: '%', dp: 2 },
+  { key: 'vmpp', label: 'Vmp', unit: 'V', dp: 3 },
+  { key: 'imp', label: 'Imp', unit: 'mA', dp: 3 },
+  { key: 'pmax', label: 'Pmax', unit: 'mW', dp: 3 },
+  { key: 'rs', label: 'Rs', unit: 'Ω', dp: 2, adv: true },
+  { key: 'rsh', label: 'Rsh', unit: 'Ω', dp: 0, adv: true },
   { key: 'ff0', label: 'FF0', unit: '%', dp: 2, adv: true },
   { key: 'dff', label: 'dFF', unit: '%', dp: 2, adv: true },
 ]
@@ -21,6 +23,8 @@ const KPIS: { key: MetricKey; label: string; unit: string; dp: number; great: nu
   { key: 'jsc', label: 'Jsc', unit: 'mA/cm²', dp: 2, great: 24, good: 20 },
   { key: 'ff', label: 'FF', unit: '%', dp: 2, great: 80, good: 70 },
 ]
+
+const BOX: MetricKey[] = ['voc', 'jsc', 'ff', 'pce']
 
 const fmt = (v: number | null | undefined, dp: number) => (typeof v === 'number' && isFinite(v) ? v.toFixed(dp) : '—')
 const tone = (v: number | undefined, great: number, good: number) => (v === undefined ? 'var(--c-dim)' : v >= great ? 'var(--c-ok)' : v >= good ? 'var(--c-accent)' : 'var(--c-warn)')
@@ -113,13 +117,7 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
   }, [res])
   const grouped = columns.length > 1
   const rows = METRICS.filter((m) => !m.adv || adv)
-  const hiPills = columns.filter((c) => typeof c.hi === 'number')
   const nPix = columns.length
-
-  const hiTone = (v: number) => {
-    const a = Math.abs(v)
-    return a < 0.05 ? { c: 'var(--c-ok)', t: 'negligible hysteresis' } : a < 0.1 ? { c: 'var(--c-warn)', t: 'moderate hysteresis' } : { c: 'var(--c-bad)', t: 'severe hysteresis' }
-  }
 
   const sidebar = (
     <>
@@ -152,7 +150,7 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
       <Toggle on={invert} onChange={setInvert} label="Invert current sign" sub="Enable if photocurrent reads positive" />
 
       <Section title="Options" />
-      <Toggle on={adv} onChange={setAdv} label="Advanced parameters" sub="Rs, Rsh, FF0, dFF" />
+      <Toggle on={adv} onChange={setAdv} label="Advanced parameters" sub="Rs, Rsh, FF0, dFF, HI" />
       <Toggle on={stats} onChange={setStats} label="Show statistics table" />
 
       <Section title="Output" />
@@ -199,21 +197,6 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
               </div>
             )}
 
-            {hiPills.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {hiPills.map((c) => {
-                  const t = hiTone(c.hi as number)
-                  return (
-                    <span key={c.label} className="inline-flex items-center gap-2 h-8 px-3.5 rounded-full border text-xs font-mono" style={{ color: t.c, borderColor: `color-mix(in srgb, ${t.c} 35%, transparent)`, background: `color-mix(in srgb, ${t.c} 10%, transparent)` }}>
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: t.c }} />
-                      {grouped && <span className="opacity-70">{c.label}</span>}
-                      HI = {Math.abs(c.hi as number).toFixed(3)} — {t.t}
-                    </span>
-                  )
-                })}
-              </div>
-            )}
-
             <Panel title={`Parameters${grouped ? ` · ${nPix} pixels` : ''}`}>
               <table className="w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-10">
@@ -255,9 +238,27 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
                       )}
                     </tr>
                   ))}
+                  {adv && columns.some((c) => typeof c.hi === 'number') && (
+                    <tr className={stripe(rows.length)}>
+                      <td className={`py-2.5 px-5 text-fg whitespace-nowrap ${grouped ? `sticky left-0 z-[1] ${rows.length % 2 === 0 ? 'bg-panel' : 'bg-surface'}` : ''}`}>
+                        HI <span className="text-dim text-xs ml-1">hysteresis index</span>
+                      </td>
+                      {columns.map((c) => (
+                        <td key={c.label} colSpan={Math.max(c.scans.length, 1)} className={`py-2.5 px-5 font-mono text-fg whitespace-nowrap ${c.scans.length > 1 ? 'text-center' : 'text-right'} ${grouped ? 'border-l border-line' : ''}`}>
+                          {fmt(c.hi, 3)}
+                        </td>
+                      ))}
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </Panel>
+
+            <div className="grid md:grid-cols-2 gap-5">
+              {BOX.map((k) => (
+                <BoxChart key={k} metric={METRICS.find((m) => m.key === k)!} columns={columns} dark={dark} />
+              ))}
+            </div>
 
             {stats && res.statistics && res.statistics.length > 0 && (
               <Panel title="Statistics">
@@ -272,7 +273,7 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
                     </tr>
                   </thead>
                   <tbody>
-                    {res.statistics.map((s, i) => {
+                    {[...res.statistics].sort((a, b) => METRICS.findIndex((m) => m.key === a.key) - METRICS.findIndex((m) => m.key === b.key)).map((s, i) => {
                       const m = METRICS.find((x) => x.key === s.key)
                       if (!m || (m.adv && !adv)) return null
                       return (

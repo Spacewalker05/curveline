@@ -10,7 +10,7 @@
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '/api'
 
-export type MetricKey = 'pce' | 'voc' | 'jsc' | 'ff' | 'pmax' | 'vmpp' | 'jmpp' | 'rs' | 'rsh' | 'ff0' | 'dff'
+export type MetricKey = 'pce' | 'voc' | 'isc' | 'jsc' | 'ff' | 'imp' | 'pmax' | 'vmpp' | 'jmpp' | 'rs' | 'rsh' | 'ff0' | 'dff'
 export type Metrics = Partial<Record<MetricKey, number | null>>
 
 export type Pixel = {

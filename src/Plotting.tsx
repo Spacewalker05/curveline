@@ -26,7 +26,22 @@ function splitDir(h: string): { base: string; dir: 'fwd' | 'rev' | null } {
 
 async function parseWorkbook(file: File): Promise<Dataset> {
   const res: any = await readExcelFile(file)
-  const rows: any[][] = (Array.isArray(res) && res[0] && 'data' in res[0] ? res[0].data : res) as any[][]
+  const sheets: any[][][] = Array.isArray(res) && res[0] && 'data' in res[0] ? res.map((x: any) => x.data) : [res]
+  const parts: Dataset[] = []
+  let lastErr: any
+  for (const rows of sheets) {
+    try {
+      parts.push(parseRows(rows, file.name))
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  if (!parts.length) throw lastErr
+  return { file: parts[0].file, labels: parts[0].labels, cols: Object.assign({}, ...parts.map((p) => p.cols)), blocks: parts.flatMap((p) => p.blocks) }
+}
+
+function parseRows(rows: any[][], fileName: string): Dataset {
+  const file = { name: fileName }
   const clean = rows.filter((r) => r.some((c) => c !== null && c !== undefined && c !== ''))
   if (clean.length < 2) throw new Error(`${file.name}: no data rows found`)
   const headers = clean[0].map((h, i) => (h === null || h === undefined || h === '' ? `Column ${i + 1}` : String(h).trim()))
@@ -228,14 +243,20 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         const name = multi ? `${s.sample} ${s.labels[i]}` : s.labels[i]
         const f = s.fwd[i] ?? null
         const r = s.rev ? (s.rev[i] ?? null) : null
-        if (kind !== 'rev' && f !== null) out.push({ x: pos++, y: f, dir: 'fwd', label: name, si })
-        if (kind !== 'fwd' && r !== null) out.push({ x: pos++, y: r, dir: 'rev', label: name, si })
+        if (multi) {
+          const spread = kind === 'both' ? 0.4 : 1
+          if (kind !== 'rev' && f !== null) out.push({ x: si + (kind === 'both' ? -0.2 : 0) + jitter(i, si) * spread, y: f, dir: 'fwd', label: name, si })
+          if (kind !== 'fwd' && r !== null) out.push({ x: si + (kind === 'both' ? 0.2 : 0) + jitter(i, si + 7) * spread, y: r, dir: 'rev', label: name, si })
+        } else {
+          if (kind !== 'rev' && f !== null) out.push({ x: pos++, y: f, dir: 'fwd', label: name, si })
+          if (kind !== 'fwd' && r !== null) out.push({ x: pos++, y: r, dir: 'rev', label: name, si })
+        }
       }
     })
     return out
   }, [block, kind, multi])
 
-  const width = Math.min(4000, Math.max(1400, entries.length * 22))
+  const width = multi ? Math.max(1200, block.series.length * 200) : Math.min(4000, Math.max(1400, entries.length * 22))
 
   useEffect(() => {
     if (!ref.current) return
@@ -245,11 +266,11 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
     const surface = cv('--c-surface')
     const pal = seriesColors()
     const dirColor = { fwd: pal[0], rev: pal[1] }
-    const splitSeries = multi && kind !== 'both'
+    const bySample = multi && kind !== 'both'
     const groups = new Map<string, { name: string; color: string; pts: typeof entries }>()
     entries.forEach((e) => {
-      const key = splitSeries ? `s${e.si}` : e.dir
-      if (!groups.has(key)) groups.set(key, { name: splitSeries ? block.series[e.si].sample : e.dir === 'fwd' ? 'Forward' : 'Reverse', color: splitSeries ? pal[e.si % pal.length] : dirColor[e.dir], pts: [] })
+      const key = bySample ? `s${e.si}` : e.dir
+      if (!groups.has(key)) groups.set(key, { name: bySample ? block.series[e.si].sample : e.dir === 'fwd' ? 'Forward' : 'Reverse', color: bySample ? pal[e.si % pal.length] : dirColor[e.dir], pts: [] })
       groups.get(key)!.pts.push(e)
     })
     const total = entries.length
@@ -259,16 +280,37 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         type: 'scatter', mode: 'markers', name: g.name,
         x: g.pts.map((p) => p.x), y: g.pts.map((p) => p.y),
         text: g.pts.map((p) => (kind === 'both' ? `${p.label} ${p.dir}` : p.label)),
-        marker: { size: opts.size, color: g.color, opacity: 0.9, line: { color: surface, width: 1.5 } },
+        marker: { size: opts.size, color: g.color, opacity: 0.85, line: { color: surface, width: 1.5 } },
         hovertemplate: '<b>%{text}</b><br>%{y:.4g}<extra>' + block.param + '</extra>',
+        showlegend: !bySample && groups.size > 1,
       })
-      if (opts.meanLine) {
+      if (!opts.meanLine) return
+      if (!multi) {
         const m = mean(g.pts.map((p) => p.y))
         traces.push({ type: 'scatter', mode: 'lines', x: [g.pts[0].x - 0.5, g.pts[g.pts.length - 1].x + 0.5], y: [m, m], line: { color: g.color, width: 1.25, dash: 'dash' }, hoverinfo: 'skip', showlegend: false })
+      } else {
+        const sub = new Map<string, typeof entries>()
+        g.pts.forEach((p) => sub.set(`${p.si}${p.dir}`, [...(sub.get(`${p.si}${p.dir}`) ?? []), p]))
+        sub.forEach((pts) => {
+          const off = kind === 'both' ? (pts[0].dir === 'fwd' ? -0.2 : 0.2) : 0
+          const half = kind === 'both' ? 0.17 : 0.32
+          const m = mean(pts.map((p) => p.y))
+          traces.push({ type: 'scatter', mode: 'lines', x: [pts[0].si + off - half, pts[0].si + off + half], y: [m, m], line: { color: fg, width: 2.5 }, hoverinfo: 'skip', showlegend: false })
+        })
       }
     })
-    const step = total <= 30 ? 1 : Math.ceil(total / 16)
-    const ticks = entries.filter((_, i) => i % step === 0)
+    let tickvals: number[], ticktext: string[], range: [number, number]
+    if (multi) {
+      tickvals = block.series.map((_, i) => i)
+      ticktext = block.series.map((s) => s.sample)
+      range = [-0.6, block.series.length - 0.4]
+    } else {
+      const step = total <= 30 ? 1 : Math.ceil(total / 16)
+      const ticks = entries.filter((_, i) => i % step === 0)
+      tickvals = ticks.map((t) => t.x)
+      ticktext = ticks.map((t) => (kind === 'both' ? `${t.label} ${t.dir}` : t.label))
+      range = [-0.7, total - 0.3]
+    }
     Plotly.react(
       ref.current,
       traces,
@@ -276,11 +318,11 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
         margin: { l: 60, r: 24, t: 64, b: 96 },
         font: { family: 'Inter', color: muted },
-        showlegend: groups.size > 1,
+        showlegend: !bySample && groups.size > 1,
         legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.14, font: { size: 11, color: fg } },
         hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
         annotations: [{ text: block.param, xref: 'paper', yref: 'paper', x: 0, y: 1.02, xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 12, color: muted } }],
-        xaxis: { showgrid: false, zerolinecolor: line, linecolor: line, tickfont: { family: 'JetBrains Mono', size: 11, color: muted }, tickmode: 'array', tickvals: ticks.map((t) => t.x), ticktext: ticks.map((t) => (kind === 'both' ? `${t.label} ${t.dir}` : t.label)), tickangle: -35, range: [-0.7, total - 0.3] },
+        xaxis: { showgrid: false, zerolinecolor: line, linecolor: line, tickfont: { family: 'JetBrains Mono', size: 11, color: muted }, tickmode: 'array', tickvals, ticktext, tickangle: multi ? 0 : -35, range },
         yaxis: { showgrid: opts.grid, gridcolor: line, zerolinecolor: line, linecolor: line, tickfont: { family: 'JetBrains Mono', size: 11, color: muted } },
       },
       { displaylogo: false, responsive: true, displayModeBar: false },
@@ -449,10 +491,11 @@ export default function Plotting({ onBack, dark, setDark }: { onBack: () => void
                   const paired = b.series.some((s) => s.rev)
                   return (paired ? (['fwd', 'rev', 'both'] as Kind[]) : (['fwd'] as Kind[])).map((k) => <PairedFigure key={`${b.param}-${k}`} file={d.file} block={b} kind={k} opts={opts} dark={dark} />)
                 })}
-                {Object.keys(d.cols).length > 0 && <FigurePlot title={d.file} subtitle="Single file" sets={[d]} mode="file" opts={opts} dark={dark} />}
+                {Object.keys(d.cols).map((p) => (
+                  <FigurePlot key={p} title={`${d.file} · ${p}`} subtitle="Samples" sets={[{ ...d, cols: { [p]: d.cols[p] } }]} mode="file" opts={opts} dark={dark} />
+                ))}
               </div>
             ))}
-            {plain.length > 1 && <FigurePlot title="All files combined" subtitle={`${plain.length} files`} sets={plain} mode="combined" opts={opts} dark={dark} />}
           </div>
         )}
       </div>

@@ -14,10 +14,14 @@ import pandas as pd
 from .jv_analysis_core import run_multi_analysis
 
 KEYMAP = {
-    "PCE (%)": "pce", "Voc (V)": "voc", "Jsc (mA/cm2)": "jsc", "FF (%)": "ff",
+    "PCE (%)": "pce", "Voc (V)": "voc", "Isc (mA)": "isc", "Imp (mA)": "imp", "Jsc (mA/cm2)": "jsc", "FF (%)": "ff",
     "Pmax (mW)": "pmax", "Vmp (V)": "vmpp", "Jmp (mA/cm2)": "jmpp",
     "Rs (Ohm)": "rs", "Rsh (Ohm)": "rsh", "FF0 (%)": "ff0", "dFF (%)": "dff",
 }
+
+
+EXPORT_ORDER = ["Voc (V)", "Isc (mA)", "Jsc (mA/cm2)", "FF (%)", "PCE (%)", "Vmp (V)", "Imp (mA)", "Pmax (mW)", "Rs (Ohm)", "Rsh (Ohm)", "FF0 (%)", "dFF (%)"]
+ADVANCED = {"Rs (Ohm)", "Rsh (Ohm)", "FF0 (%)", "dFF (%)"}
 
 
 def _num(x):
@@ -47,7 +51,7 @@ def _data_url(data: bytes, mime: str) -> str:
 
 def analyze(files: list, params: dict) -> dict:
     """files: [{'name': str, 'data': base64 str}] -> JSON-serialisable response for src/api.ts."""
-    log, out_files, long_rows, sheets = [], [], [], {}
+    log, out_files, long_rows = [], [], []
 
     for f in files:
         name = f["name"]
@@ -73,10 +77,8 @@ def analyze(files: list, params: dict) -> dict:
 
         if res["is_multi"]:
             pixels = [_pixel(d, f"{stem}-{d['label']}", d["label"]) for d in res["devices"]]
-            sheets[stem[:31]] = res["combined_df"]
         else:
             pixels = [_pixel(res, stem, stem)]
-            sheets[stem[:31]] = res["results_df"]
         out_files.append({"name": name, "pixels": pixels})
 
         for px in pixels:
@@ -98,11 +100,42 @@ def analyze(files: list, params: dict) -> dict:
             statistics.append({"key": ui, "mean": float(a.mean()), "std": sd, "min": float(a.min()), "max": float(a.max())})
 
     long_df = pd.DataFrame(long_rows)
+    ui_of = {core: ui for core, ui in KEYMAP.items()}
+    order = [k for k in EXPORT_ORDER if bool(params.get("advanced", True)) or k not in ADVANCED]
+
+    def val(px, direction, core):
+        d = px.get(direction)
+        return None if not d else d.get(ui_of[core])
+
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as xw:
-        long_df.to_excel(xw, sheet_name="All pixels", index=False)
-        for sname, df in sheets.items():
-            df.to_excel(xw, sheet_name=re.sub(r"[\[\]:*?/\\]", "_", sname) or "Sheet", index=False)
+        if len(out_files) == 1:
+            # One device file: Pixel | <param> Forward | <param> Reverse | ...
+            pixels = out_files[0]["pixels"]
+            table = {"Pixel": [px["label"] for px in pixels]}
+            for core in order:
+                if any(px.get("forward") for px in pixels):
+                    table[f"{core}  Forward"] = [val(px, "forward", core) for px in pixels]
+                    table[f"{core}  Reverse"] = [val(px, "reverse", core) for px in pixels]
+                else:
+                    table[core] = [val(px, "reverse", core) for px in pixels]
+            pd.DataFrame(table).to_excel(xw, sheet_name="JV Parameters", index=False)
+        else:
+            # Several sample files: one sheet per parameter, columns S(fwd) / S(rev), rows = pixels
+            for core in order:
+                cols, n = {core: None}, max(len(f["pixels"]) for f in out_files)
+                cols = {core: [None] * n}
+                for f in out_files:
+                    stem = Path(f["name"]).stem
+                    pxs = f["pixels"]
+                    pad = lambda v: v + [None] * (n - len(v))
+                    if any(px.get("forward") for px in pxs):
+                        cols[f"{stem}(fwd)"] = pad([val(px, "forward", core) for px in pxs])
+                        cols[f"{stem}(rev)"] = pad([val(px, "reverse", core) for px in pxs])
+                    else:
+                        cols[stem] = pad([val(px, "reverse", core) for px in pxs])
+                name_ = re.sub(r"[\[\]:*?/\\]", "_", core)[:31]
+                pd.DataFrame(cols).to_excel(xw, sheet_name=name_, index=False)
 
     return {
         "files": out_files,
