@@ -5,6 +5,11 @@ export const sectionLabel = 'text-[10.5px] font-semibold uppercase tracking-[0.1
 export const tr = 'transition-all duration-150 ease-out'
 export const ghostBtn = `h-9 px-4 rounded-lg border border-line bg-surface text-xs font-medium text-fg cursor-pointer hover:border-accent hover:scale-[1.02] ${tr}`
 export const primaryBtn = `w-full h-12 rounded-xl bg-accent text-on-accent font-semibold text-sm cursor-pointer hover:bg-accent-hover hover:scale-[1.02] hover:shadow-[0_0_24px_rgba(217,119,87,0.35)] active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none ${tr} outline-none focus-visible:ring-2 focus-visible:ring-accent/60`
+export const paperAxis = (fg: string, muted: string) => ({
+  showline: true, mirror: true, linecolor: fg, linewidth: 1.2, ticks: 'inside', ticklen: 6, tickwidth: 1.2, tickcolor: fg,
+  zeroline: false, tickfont: { family: 'JetBrains Mono', size: 11, color: muted },
+})
+export const minorTicks = (fg: string) => ({ ticks: 'inside', ticklen: 3, tickwidth: 1, tickcolor: fg, showgrid: false })
 export const cv = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim()
 
 export function Section({ title }: { title: string }) {

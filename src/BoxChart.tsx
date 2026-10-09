@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import Plotly from 'plotly.js-basic-dist-min'
 import type { MetricKey, Metrics } from './api'
-import { card, cv, sectionLabel } from './ui'
+import { card, cv, minorTicks, paperAxis, sectionLabel } from './ui'
 
 type Col = { label: string; scans: { name: 'reverse' | 'forward'; m: Metrics }[] }
 type Metric = { key: MetricKey; label: string; unit: string }
@@ -34,8 +34,8 @@ export default function BoxChart({ metric, columns, dark }: { metric: Metric; co
       {
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', margin: { l: 56, r: 16, t: 12, b: 36 },
         font: { family: 'Inter', color: muted }, showlegend: false,
-        xaxis: { showgrid: false, linecolor: line, tickfont: { size: 12, color: fg } },
-        yaxis: { gridcolor: line, zerolinecolor: line, linecolor: line, tickfont: { family: 'JetBrains Mono', size: 11, color: muted } },
+        xaxis: { ...paperAxis(fg, muted), showgrid: false, ticks: '', tickfont: { size: 12, color: fg } },
+        yaxis: { ...paperAxis(fg, muted), showgrid: false, minor: minorTicks(fg) },
         hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
       },
       { displaylogo: false, responsive: true, displayModeBar: false },

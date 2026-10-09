@@ -109,7 +109,7 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
     const multi = res.files.length > 1
     return res.files.flatMap((f) =>
       f.pixels.map((px: Pixel) => ({
-        label: multi ? `${f.name} · ${px.label}` : px.label,
+        label: multi ? `${f.name.replace(/\.[^.]+$/, '')} · ${px.label}` : px.label,
         scans: (['reverse', 'forward'] as const).filter((s) => px[s]).map((s) => ({ name: s, m: px[s] as Metrics })),
         hi: px.hysteresis_index,
       })),
@@ -123,7 +123,7 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
     <>
       <div className={sectionLabel}>Data Files</div>
       <div className="h-px bg-line mt-2 mb-3" />
-      <DropZone accept=".csv,.txt,.xlsx,.xls" label="Drop CSV / Excel / TXT files" onFiles={(f) => setFiles((x) => [...x, ...f.filter((n) => !x.some((o) => o.name === n.name))])} />
+      <DropZone accept=".csv,.txt,.xlsx,.xls" label="Drop data files" onFiles={(f) => setFiles((x) => [...x, ...f.filter((n) => !x.some((o) => o.name === n.name))])} />
       <FileChips names={files.map((f) => f.name)} onRemove={(i) => setFiles(files.filter((_, k) => k !== i))} />
 
       <Section title="Device Geometry" />

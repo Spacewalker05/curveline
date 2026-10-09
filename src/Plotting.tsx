@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Plotly from 'plotly.js-basic-dist-min'
 import readExcelFile from 'read-excel-file/browser'
-import { card, Check, cv, DropZone, FileChips, primaryBtn, Section, sectionLabel, Shell, Toggle, tr } from './ui'
+import { card, Check, cv, minorTicks, paperAxis, DropZone, FileChips, primaryBtn, Section, sectionLabel, Shell, Toggle, tr } from './ui'
 
 type Series = { sample: string; labels: string[]; fwd: (number | null)[]; rev: (number | null)[] | null }
 type Block = { param: string; series: Series[] }
@@ -16,12 +16,14 @@ const std = (a: number[]) => {
 }
 const safe = (s: string) => s.replace(/[^\w.-]+/g, '_')
 
-const DIR = /(?:[\s_-]+|\s*[([])\s*(fwd|forward|rev|reverse)\s*[)\]]?\s*$/i
+const DIR_RE = /(^|[^a-z])(fwd|forward|fw|rev|reverse|rv|bwd|backward|bw)(?![a-z])/i
 function splitDir(h: string): { base: string; dir: 'fwd' | 'rev' | null } {
-  const m = h.match(DIR)
-  const base = m ? h.slice(0, m.index).trim() : h
-  if (!m || !base) return { base: h, dir: null }
-  return { base, dir: /^f/i.test(m[1]) ? 'fwd' : 'rev' }
+  const m = h.match(DIR_RE)
+  if (!m || m.index === undefined) return { base: h, dir: null }
+  const start = m.index + m[1].length
+  const base = (h.slice(0, start) + h.slice(start + m[2].length)).replace(/\(\s*\)|\[\s*\]/g, '').replace(/[\s_-]{2,}/g, ' ').replace(/[\s_-]+$/g, '').replace(/^[\s_-]+/g, '').trim()
+  if (!base) return { base: h, dir: null }
+  return { base, dir: /^f/i.test(m[2]) ? 'fwd' : 'rev' }
 }
 
 async function parseWorkbook(file: File): Promise<Dataset> {
@@ -44,8 +46,11 @@ function parseRows(rows: any[][], fileName: string): Dataset {
   const file = { name: fileName }
   const clean = rows.filter((r) => r.some((c) => c !== null && c !== undefined && c !== ''))
   if (clean.length < 2) throw new Error(`${file.name}: no data rows found`)
-  const headers = clean[0].map((h, i) => (h === null || h === undefined || h === '' ? `Column ${i + 1}` : String(h).trim()))
-  const body = clean.slice(1)
+  const isTxt = (v: any) => typeof v === 'string' && v.trim() !== '' && isNaN(Number(v))
+  let h0 = clean.slice(0, 20).findIndex((r, i) => r.filter(isTxt).length >= 2 && clean[i + 1]?.some((v) => typeof v === 'number'))
+  if (h0 < 0) h0 = 0
+  const headers = clean[h0].map((h, i) => (h === null || h === undefined || h === '' ? `Column ${i + 1}` : String(h).trim()))
+  const body = clean.slice(h0 + 1)
   const isNum = (v: any) => typeof v === 'number' && isFinite(v)
   const numeric = headers.map((_, c) => {
     const vals = body.map((r) => r[c]).filter((v) => v !== null && v !== undefined && v !== '')
@@ -141,14 +146,14 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
     const layout: any = {
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
-      margin: { l: 56, r: 24, t: 64, b: 84 },
+      margin: { l: 64, r: 28, t: 64, b: 84 },
       font: { family: 'Inter', color: muted },
       showlegend: mode === 'combined',
       legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.14, font: { size: 11, color: fg } },
       hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
       annotations: [],
     }
-    const ax = { zerolinecolor: line, linecolor: line, tickfont: { family: 'JetBrains Mono', size: 11, color: muted } }
+    const ax = paperAxis(fg, muted)
 
     params.forEach((p, k) => {
       const sfx = k === 0 ? '' : String(k + 1)
@@ -178,7 +183,7 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
       const count = mode === 'file' ? Math.max(...groups.map((d) => d.labels.length)) : groups.length
       const uniq = ticks.filter((t, i, arr) => arr.findIndex((u) => u.v === t.v) === i)
       layout['xaxis' + sfx] = { ...ax, domain: [d0, d1], anchor: 'y' + sfx, showgrid: false, tickmode: 'array', tickvals: uniq.map((t) => t.v), ticktext: uniq.map((t) => t.t), tickangle: uniq.length > 4 || mode === 'file' ? -35 : 0, range: [-0.6, count - 0.4] }
-      layout['yaxis' + sfx] = { ...ax, domain: [0, 1], anchor: 'x' + sfx, showgrid: opts.grid, gridcolor: line }
+      layout['yaxis' + sfx] = { ...ax, domain: [0, 1], anchor: 'x' + sfx, showgrid: opts.grid, gridcolor: line, minor: minorTicks(fg) }
       layout.annotations.push({ text: p, xref: 'paper', yref: 'paper', x: (d0 + d1) / 2, y: 1.02, xanchor: 'center', yanchor: 'bottom', showarrow: false, font: { size: 12, color: muted } })
     })
     Plotly.react(ref.current, traces, layout, { displaylogo: false, responsive: true, displayModeBar: false })
@@ -322,8 +327,8 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.14, font: { size: 11, color: fg } },
         hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
         annotations: [{ text: block.param, xref: 'paper', yref: 'paper', x: 0, y: 1.02, xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 12, color: muted } }],
-        xaxis: { showgrid: false, zerolinecolor: line, linecolor: line, tickfont: { family: 'JetBrains Mono', size: 11, color: muted }, tickmode: 'array', tickvals, ticktext, tickangle: multi ? 0 : -35, range },
-        yaxis: { showgrid: opts.grid, gridcolor: line, zerolinecolor: line, linecolor: line, tickfont: { family: 'JetBrains Mono', size: 11, color: muted } },
+        xaxis: { ...paperAxis(fg, muted), showgrid: false, tickmode: 'array', tickvals, ticktext, tickangle: multi ? 0 : -35, range },
+        yaxis: { ...paperAxis(fg, muted), showgrid: opts.grid, gridcolor: line, minor: minorTicks(fg) },
       },
       { displaylogo: false, responsive: true, displayModeBar: false },
     )
@@ -363,7 +368,7 @@ export default function Plotting({ onBack, dark, setDark }: { onBack: () => void
   const [data, setData] = useState<Dataset[]>([])
   const [err, setErr] = useState('')
   const [chosen, setChosen] = useState<string[] | null>(null)
-  const [opts, setOpts] = useState<Opts>({ meanLine: true, errBars: true, grid: true, size: 10 })
+  const [opts, setOpts] = useState<Opts>({ meanLine: true, errBars: true, grid: false, size: 10 })
   const set = (p: Partial<Opts>) => setOpts((o) => ({ ...o, ...p }))
 
   const allParams = useMemo(() => Array.from(new Set(data.flatMap((d) => [...d.blocks.map((b) => b.param), ...Object.keys(d.cols)]))), [data])
