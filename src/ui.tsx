@@ -202,3 +202,26 @@ export function Shell({ crumb, dark, setDark, onBack, sidebar, action, status, c
     </div>
   )
 }
+
+/** Resolves with the task result, but never sooner than `ms` (presentation timing only). */
+export async function withMinDuration<T>(task: Promise<T>, ms = 1500): Promise<T> {
+  const [result] = await Promise.allSettled([task, new Promise((r) => setTimeout(r, ms))])
+  if (result.status === 'rejected') throw result.reason
+  return result.value
+}
+
+export function Analysing({ label = 'Analysing', sub }: { label?: string; sub?: string }) {
+  return (
+    <div className="min-h-[420px] h-full grid place-items-center" role="status" aria-live="polite">
+      <div className="text-center">
+        <div className="analysing-track mx-auto" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <span key={i} className="analysing-dot" style={{ animationDelay: `${i * 0.14}s` }} />
+          ))}
+        </div>
+        <div className="mt-5 text-sm font-semibold tracking-wide text-fg">{label}…</div>
+        {sub && <div className="mt-1.5 text-xs text-dim">{sub}</div>}
+      </div>
+    </div>
+  )
+}

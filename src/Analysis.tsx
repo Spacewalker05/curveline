@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { runAnalysis, type AnalysisResponse, type MetricKey, type Metrics, type Pixel } from './api'
 import BoxChart from './BoxChart'
-import { card, DropZone, Field, FileChips, primaryBtn, Section, sectionLabel, Shell, TextField, Toggle, tr } from './ui'
+import { Analysing, card, DropZone, Field, FileChips, primaryBtn, Section, sectionLabel, Shell, TextField, Toggle, tr, withMinDuration } from './ui'
 
 const METRICS: { key: MetricKey; label: string; unit: string; dp: number; adv?: boolean }[] = [
   { key: 'voc', label: 'Voc', unit: 'V', dp: 3 },
@@ -81,11 +81,12 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
     if (!files.length) return setError('Add at least one data file.')
     if (!(p.area > 0) || !(p.irr > 0)) return setError('Enter a valid active area and irradiance.')
     if (!(p.vmax > p.vmin)) return setError('V max must be greater than V min.')
+    if (loading) return
     setError('')
     setLoading(true)
     try {
       setRes(
-        await runAnalysis(files, {
+        await withMinDuration(runAnalysis(files, {
           area_cm2: p.area,
           irradiance_mw_cm2: p.irr,
           v_min: p.vmin,
@@ -94,7 +95,7 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
           invert_current: invert,
           advanced: adv,
           output_name: out || 'jv_results',
-        }),
+        })),
       )
     } catch (e: any) {
       setRes(null)
@@ -165,7 +166,7 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
       dark={dark}
       setDark={setDark}
       onBack={onBack}
-      sidebar={sidebar}
+      sidebar={<fieldset disabled={loading} className={`m-0 min-w-0 border-0 p-0 ${loading ? 'opacity-60 pointer-events-none' : ''}`}>{sidebar}</fieldset>}
       action={
         <button onClick={run} disabled={loading} className={primaryBtn}>
           {loading ? 'Analysing…' : '▶ Run Analysis'}
@@ -180,10 +181,12 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
     >
       <div className="flex-1 p-6 lg:p-8">
         {error && <div className="max-w-[1200px] mx-auto mb-5 rounded-xl border border-bad/40 bg-bad/10 text-bad text-sm px-4 py-3">{error}</div>}
-        {!res ? (
+        {loading ? (
+          <Analysing sub={`Processing ${files.length} file${files.length === 1 ? '' : 's'}`} />
+        ) : !res ? (
           <div className="min-h-[420px] h-full grid place-items-center">
             <div className="border border-dashed border-line bg-surface/60 rounded-2xl px-12 py-14 text-center max-w-md">
-              <p className="text-muted text-sm">{loading ? 'Analysing your data…' : 'No results yet — upload files and click Run Analysis'}</p>
+              <p className="text-muted text-sm">No results yet — upload files and click Run Analysis</p>
             </div>
           </div>
         ) : (

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Plotly from 'plotly.js-basic-dist-min'
 import readExcelFile from 'read-excel-file/browser'
 import { ExpandButton } from './Expand'
-import { card, Check, cv, minorTicks, DropZone, FileChips, primaryBtn, Section, sectionLabel, Shell, Toggle, tr } from './ui'
+import { card, Check, cv, minorTicks, DropZone, FileChips, primaryBtn, Section, sectionLabel, Shell, Toggle, tr, Analysing, withMinDuration } from './ui'
 
 type Series = { sample: string; labels: string[]; fwd: (number | null)[]; rev: (number | null)[] | null }
 type Block = { param: string; series: Series[] }
@@ -423,7 +423,17 @@ export default function Plotting({ onBack, dark, setDark }: { onBack: () => void
   )
   const plain = useMemo(() => shown.filter((d) => Object.keys(d.cols).length), [shown])
 
+  const [busy, setBusy] = useState(false)
   const addFiles = async (incoming: File[]) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      await withMinDuration(parseFiles(incoming))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const parseFiles = async (incoming: File[]) => {
     const ok = incoming.filter((f) => /\.xlsx$/i.test(f.name))
     const errors: string[] = ok.length < incoming.length ? ['Only Excel .xlsx files are supported.'] : []
     const parsed: Dataset[] = []
@@ -494,21 +504,23 @@ export default function Plotting({ onBack, dark, setDark }: { onBack: () => void
       dark={dark}
       setDark={setDark}
       onBack={onBack}
-      sidebar={sidebar}
+      sidebar={<fieldset disabled={busy} className={`m-0 min-w-0 border-0 p-0 ${busy ? 'opacity-60 pointer-events-none' : ''}`}>{sidebar}</fieldset>}
       action={
-        <button disabled={!shown.length} onClick={downloadAll} className={primaryBtn}>
+        <button disabled={busy || !shown.length} onClick={downloadAll} className={primaryBtn}>
           ↓ Download all as PNG
         </button>
       }
       status={
         <>
-          <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-          {data.length ? `${data.length} file${data.length > 1 ? 's' : ''} · ${params.length} parameter${params.length === 1 ? '' : 's'}` : 'Ready'}
+          <span className={`w-1.5 h-1.5 rounded-full ${busy ? 'bg-warn animate-pulse' : 'bg-ok'}`} />
+          {busy ? 'Analysing files' : data.length ? `${data.length} file${data.length > 1 ? 's' : ''} · ${params.length} parameter${params.length === 1 ? '' : 's'}` : 'Ready'}
         </>
       }
     >
       <div className="flex-1 p-6 lg:p-8">
-        {!shown.length ? (
+        {busy ? (
+          <Analysing sub="Reading Excel files and preparing charts" />
+        ) : !shown.length ? (
           <div className="h-full min-h-[420px] grid place-items-center">
             <div className="border border-dashed border-line bg-surface/60 rounded-2xl px-10 py-12 text-center max-w-md">
               <p className="text-muted text-sm">{data.length ? 'Select at least one parameter to plot' : 'No data yet — upload an Excel file to plot your samples'}</p>

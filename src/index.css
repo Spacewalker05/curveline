@@ -186,3 +186,39 @@ input[type='number'] {
     display: none;
   }
 }
+
+/* Analysing state: dots travelling left → right */
+.analysing-track {
+  position: relative;
+  width: 180px;
+  height: 10px;
+  overflow: hidden;
+}
+.analysing-dot {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--c-accent);
+  opacity: 0;
+  animation: analysing-travel 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes analysing-travel {
+  0% { transform: translateX(0); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateX(172px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .analysing-dot {
+    animation: none;
+    opacity: 1;
+  }
+  .analysing-dot:nth-child(1) { transform: translateX(46px); }
+  .analysing-dot:nth-child(2) { transform: translateX(66px); }
+  .analysing-dot:nth-child(3) { transform: translateX(86px); }
+  .analysing-dot:nth-child(4) { transform: translateX(106px); }
+  .analysing-dot:nth-child(5) { transform: translateX(126px); }
+}
