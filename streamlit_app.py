@@ -14,7 +14,14 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-from backend.analyze import analyze, inspect
+import importlib
+
+import backend.analyze as _backend
+
+# Streamlit keeps imported modules alive between reruns/redeploys; reload so a
+# freshly pulled backend/analyze.py (e.g. the new `inspect` handler) is always used.
+_backend = importlib.reload(_backend)
+analyze, inspect = _backend.analyze, _backend.inspect
 
 FRONTEND = Path(__file__).parent / "streamlit_frontend"
 
