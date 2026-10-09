@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Plotly from 'plotly.js-basic-dist-min'
 import readExcelFile from 'read-excel-file/browser'
+import { ExpandButton } from './Expand'
 import { card, Check, cv, minorTicks, paperAxis, DropZone, FileChips, primaryBtn, Section, sectionLabel, Shell, Toggle, tr } from './ui'
 
 type Series = { sample: string; labels: string[]; fwd: (number | null)[]; rev: (number | null)[] | null }
@@ -168,7 +169,7 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
         const vals = idx.map((q) => q.y)
         const m = mean(vals)
         const base = { type: 'scatter', xaxis: 'x' + sfx, yaxis: 'y' + sfx }
-        const marker = { size: opts.size, color: col, opacity: 0.9, line: { color: surface, width: 1.5 } }
+        const marker = { symbol: 'diamond', size: opts.size, color: col, opacity: 0.9, line: { color: surface, width: 1.5 } }
         if (mode === 'file') {
           idx.forEach((q) => ticks.push({ v: q.i, t: d.labels[q.i] }))
           traces.push({ ...base, mode: 'markers', x: idx.map((q) => q.i), y: vals, text: idx.map((q) => d.labels[q.i]), marker, hovertemplate: '<b>%{text}</b><br>%{y:.4g}<extra>' + p + '</extra>', showlegend: false })
@@ -212,7 +213,7 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
             {subtitle} · {nPts} samples · {params.length} parameter{params.length === 1 ? '' : 's'}
           </div>
         </div>
-        <PngButton onClick={png} />
+        <PngButton onClick={png} getEl={() => ref.current} title={title} />
       </div>
       <div ref={ref} data-plot={safe(title)} data-w={width} className="w-full h-[400px]" />
     </div>
@@ -220,14 +221,17 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
 }
 
 
-function PngButton({ onClick }: { onClick: () => void }) {
+function PngButton({ onClick, getEl, title }: { onClick: () => void; getEl: () => HTMLElement | null; title: string }) {
   return (
+    <div className="flex items-center gap-2">
+    <ExpandButton getEl={getEl} title={title} />
     <button onClick={onClick} className={`h-8 px-3.5 rounded-lg border border-line text-xs font-medium text-fg flex items-center gap-2 cursor-pointer hover:border-accent hover:text-accent hover:scale-[1.02] ${tr}`}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 4v11m0 0l-4-4m4 4l4-4M4 19h16" />
       </svg>
       PNG
     </button>
+    </div>
   )
 }
 
@@ -239,8 +243,17 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
   const title = `${file} · ${block.param} · ${KIND_LABEL[kind]}`
   const multi = block.series.length > 1
 
+  const cats = useMemo(() => {
+    const out: { si: number; dir: 'fwd' | 'rev'; label: string }[] = []
+    block.series.forEach((s, si) => {
+      if (kind !== 'rev') out.push({ si, dir: 'fwd', label: s.rev ? `${s.sample}(fwd)` : s.sample })
+      if (kind !== 'fwd' && s.rev) out.push({ si, dir: 'rev', label: `${s.sample}(rev)` })
+    })
+    return out
+  }, [block, kind])
+
   const entries = useMemo(() => {
-    const out: { x: number; y: number; dir: 'fwd' | 'rev'; label: string; si: number }[] = []
+    const out: { x: number; y: number; dir: 'fwd' | 'rev'; label: string; si: number; ci?: number }[] = []
     let pos = 0
     block.series.forEach((s, si) => {
       const n = Math.max(s.fwd.length, s.rev?.length ?? 0)
@@ -249,9 +262,10 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         const f = s.fwd[i] ?? null
         const r = s.rev ? (s.rev[i] ?? null) : null
         if (multi) {
-          const spread = kind === 'both' ? 0.4 : 1
-          if (kind !== 'rev' && f !== null) out.push({ x: si + (kind === 'both' ? -0.2 : 0) + jitter(i, si) * spread, y: f, dir: 'fwd', label: name, si })
-          if (kind !== 'fwd' && r !== null) out.push({ x: si + (kind === 'both' ? 0.2 : 0) + jitter(i, si + 7) * spread, y: r, dir: 'rev', label: name, si })
+          const cf = cats.findIndex((c) => c.si === si && c.dir === 'fwd')
+          const cr = cats.findIndex((c) => c.si === si && c.dir === 'rev')
+          if (kind !== 'rev' && f !== null) out.push({ x: cf + jitter(i, cf) * 0.9, y: f, dir: 'fwd', label: `${name} fwd`, si, ci: cf })
+          if (kind !== 'fwd' && r !== null) out.push({ x: cr + jitter(i, cr + 7) * 0.9, y: r, dir: 'rev', label: `${name} rev`, si, ci: cr })
         } else {
           if (kind !== 'rev' && f !== null) out.push({ x: pos++, y: f, dir: 'fwd', label: name, si })
           if (kind !== 'fwd' && r !== null) out.push({ x: pos++, y: r, dir: 'rev', label: name, si })
@@ -259,9 +273,9 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
       }
     })
     return out
-  }, [block, kind, multi])
+  }, [block, kind, multi, cats])
 
-  const width = multi ? Math.max(1200, block.series.length * 200) : Math.min(4000, Math.max(1400, entries.length * 22))
+  const width = multi ? Math.max(1100, cats.length * 140) : Math.min(4000, Math.max(1400, entries.length * 22))
 
   useEffect(() => {
     if (!ref.current) return
@@ -269,6 +283,33 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
     const muted = cv('--c-muted')
     const fg = cv('--c-fg')
     const surface = cv('--c-surface')
+    if (multi) {
+      const REF = ['#4d4d4d', '#f23c3c', '#1565e0', '#2eaa6a', '#b36be0', '#c99700', '#00bfbf', '#7a3f3f', '#e07b00', '#6a8caf']
+      const traces: any[] = []
+      cats.forEach((c, ci) => {
+        const pts = entries.filter((e) => e.ci === ci)
+        if (!pts.length) return
+        const col = REF[ci % REF.length]
+        const ys = pts.map((p) => p.y)
+        const m = mean(ys)
+        traces.push({ type: 'scatter', mode: 'markers', name: c.label, x: pts.map((p) => p.x), y: ys, text: pts.map((p) => p.label), marker: { symbol: 'diamond', size: opts.size, color: col }, hovertemplate: '<b>%{text}</b><br>%{y:.4g}<extra>' + block.param + '</extra>', showlegend: false })
+        if (opts.errBars) traces.push({ type: 'scatter', mode: 'markers', x: [ci], y: [m], marker: { size: 1, opacity: 0 }, error_y: { type: 'data', array: [std(ys)], color: fg, thickness: 1.2, width: 14 }, hoverinfo: 'skip', showlegend: false })
+        if (opts.meanLine) traces.push({ type: 'scatter', mode: 'lines', x: [ci - 0.34, ci + 0.34], y: [m, m], line: { color: fg, width: 1.4 }, hovertemplate: `mean ${m.toPrecision(4)}<extra></extra>`, showlegend: false })
+      })
+      Plotly.react(
+        ref.current,
+        traces,
+        {
+          paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: false,
+          margin: { l: 84, r: 28, t: 28, b: 64 }, font: { family: 'Inter', color: fg },
+          hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
+          xaxis: { ...paperAxis(fg, fg), showgrid: false, ticks: 'inside', tickmode: 'array', tickvals: cats.map((_, i) => i), ticktext: cats.map((c) => c.label), range: [-0.6, cats.length - 0.4], tickfont: { family: 'Inter', size: 13, color: fg } },
+          yaxis: { ...paperAxis(fg, muted), showgrid: opts.grid, gridcolor: line, minor: minorTicks(fg), title: { text: block.param, font: { size: 15, color: fg }, standoff: 10 }, tickfont: { family: 'Inter', size: 13, color: fg } },
+        },
+        { displaylogo: false, responsive: true, displayModeBar: false },
+      )
+      return
+    }
     const pal = seriesColors()
     const dirColor = { fwd: pal[0], rev: pal[1] }
     const bySample = multi && kind !== 'both'
@@ -285,7 +326,7 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         type: 'scatter', mode: 'markers', name: g.name,
         x: g.pts.map((p) => p.x), y: g.pts.map((p) => p.y),
         text: g.pts.map((p) => (kind === 'both' ? `${p.label} ${p.dir}` : p.label)),
-        marker: { size: opts.size, color: g.color, opacity: 0.85, line: { color: surface, width: 1.5 } },
+        marker: { symbol: 'diamond', size: opts.size, color: g.color, opacity: 0.85, line: { color: surface, width: 1.5 } },
         hovertemplate: '<b>%{text}</b><br>%{y:.4g}<extra>' + block.param + '</extra>',
         showlegend: !bySample && groups.size > 1,
       })
@@ -332,7 +373,7 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
       },
       { displaylogo: false, responsive: true, displayModeBar: false },
     )
-  }, [entries, opts, dark, kind, multi, block])
+  }, [entries, opts, dark, kind, multi, block, cats])
 
   useEffect(() => {
     const el = ref.current
@@ -357,7 +398,7 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
             {entries.length} points{multi ? ` · ${block.series.length} samples` : ''}
           </div>
         </div>
-        <PngButton onClick={png} />
+        <PngButton onClick={png} getEl={() => ref.current} title={title} />
       </div>
       <div ref={ref} data-plot={safe(title)} data-w={width} className="w-full h-[400px]" />
     </div>

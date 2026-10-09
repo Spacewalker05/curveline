@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import Plotly from 'plotly.js-basic-dist-min'
 import type { MetricKey, Metrics } from './api'
+import { ExpandButton } from './Expand'
 import { card, cv, minorTicks, paperAxis, sectionLabel } from './ui'
 
 type Col = { label: string; scans: { name: 'reverse' | 'forward'; m: Metrics }[] }
@@ -51,8 +52,11 @@ export default function BoxChart({ metric, columns, dark }: { metric: Metric; co
 
   return (
     <div className={`${card} p-5`}>
-      <div className={sectionLabel}>
-        {metric.label} <span className="normal-case tracking-normal text-dim">({metric.unit})</span>
+      <div className="flex items-center justify-between">
+        <div className={sectionLabel}>
+          {metric.label} <span className="normal-case tracking-normal text-dim">({metric.unit})</span>
+        </div>
+        <ExpandButton getEl={() => ref.current} title={`${metric.label} (${metric.unit})`} />
       </div>
       <div ref={ref} className="w-full h-[280px] mt-2" />
     </div>
