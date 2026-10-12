@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Plotly from 'plotly.js-basic-dist-min'
 import readExcelFile from 'read-excel-file/browser'
 import { ExpandButton } from './Expand'
+import { plotImageName } from './plot-export'
 import { card, Check, cv, minorTicks, DropZone, FileChips, primaryBtn, Section, sectionLabel, Shell, Toggle, tr, Analysing, withMinDuration } from './ui'
 
 type Series = { sample: string; labels: string[]; fwd: (number | null)[]; rev: (number | null)[] | null }
@@ -142,6 +143,7 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
   const params = useMemo(() => Array.from(new Set(sets.flatMap((d) => Object.keys(d.cols)))), [sets])
   const nPts = useMemo(() => sets.reduce((s, d) => s + d.labels.length, 0), [sets])
   const width = Math.max(1400, params.length * 560)
+  const filename = plotImageName(params.join('_'), sets.map((d) => d.file).join('_'))
 
   useEffect(() => {
     if (!ref.current) return
@@ -193,8 +195,8 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
       layout['yaxis' + sfx] = { ...originAxis(p), domain: [0, 1], anchor: 'x' + sfx, showgrid: opts.grid, gridcolor: '#dddddd', minor: minorTicks('#171717') }
       layout.annotations.push({ text: p, xref: 'paper', yref: 'paper', x: (d0 + d1) / 2, y: 1.02, xanchor: 'center', yanchor: 'bottom', showarrow: false, font: { size: 12, color: muted } })
     })
-    Plotly.react(ref.current, traces, layout, { displaylogo: false, responsive: true, displayModeBar: false })
-  }, [sets, params, mode, opts, dark])
+    Plotly.react(ref.current, traces, layout, { displaylogo: false, responsive: true, displayModeBar: false, toImageButtonOptions: { filename, scale: 2 } })
+  }, [sets, params, mode, opts, dark, filename])
 
   useEffect(() => {
     const el = ref.current
@@ -205,7 +207,7 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
 
   const png = async () => {
     await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
-    await Plotly.downloadImage(ref.current, { format: 'png', width, height: 800, scale: 2, filename: safe(title) })
+    await Plotly.downloadImage(ref.current, { format: 'png', width, height: 800, scale: 2, filename })
     await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
   }
 
@@ -220,7 +222,7 @@ function FigurePlot({ title, subtitle, sets, mode, opts, dark }: { title: string
         </div>
         <PngButton onClick={png} getEl={() => ref.current} title={title} />
       </div>
-      <div ref={ref} data-plot={safe(title)} data-w={width} className="w-full h-[400px]" />
+      <div ref={ref} data-plot={filename} data-image-name={filename} data-w={width} className="w-full h-[400px]" />
     </div>
   )
 }
@@ -246,6 +248,7 @@ const KIND_LABEL: Record<Kind, string> = { fwd: 'Forward', rev: 'Reverse', both:
 function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: Block; kind: Kind; opts: Opts; dark: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const title = `${file} · ${block.param} · ${KIND_LABEL[kind]}`
+  const filename = plotImageName(block.param, file, kind === 'both' ? undefined : KIND_LABEL[kind])
   const multi = block.series.length > 1
 
   const cats = useMemo(() => {
@@ -311,7 +314,7 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
           xaxis: { ...originAxis(), showgrid: false, tickmode: 'array', tickvals: cats.map((_, i) => i), ticktext: cats.map((c) => c.label), range: [-0.6, cats.length - 0.4] },
           yaxis: { ...originAxis(block.param), showgrid: opts.grid, gridcolor: '#dddddd', minor: minorTicks('#171717') },
         },
-        { displaylogo: false, responsive: true, displayModeBar: false },
+        { displaylogo: false, responsive: true, displayModeBar: false, toImageButtonOptions: { filename, scale: 2 } },
       )
       return
     }
@@ -376,9 +379,9 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         xaxis: { ...originAxis(), showgrid: false, tickmode: 'array', tickvals, ticktext, tickangle: 0, range },
         yaxis: { ...originAxis(block.param), showgrid: opts.grid, gridcolor: '#dddddd', minor: minorTicks('#171717') },
       },
-      { displaylogo: false, responsive: true, displayModeBar: false },
+      { displaylogo: false, responsive: true, displayModeBar: false, toImageButtonOptions: { filename, scale: 2 } },
     )
-  }, [entries, opts, dark, kind, multi, block, cats])
+  }, [entries, opts, dark, kind, multi, block, cats, filename])
 
   useEffect(() => {
     const el = ref.current
@@ -389,7 +392,7 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
 
   const png = async () => {
     await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
-    await Plotly.downloadImage(ref.current, { format: 'png', width, height: 800, scale: 2, filename: safe(title) })
+    await Plotly.downloadImage(ref.current, { format: 'png', width, height: 800, scale: 2, filename })
     await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
   }
 
@@ -404,7 +407,7 @@ function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: 
         </div>
         <PngButton onClick={png} getEl={() => ref.current} title={title} />
       </div>
-      <div ref={ref} data-plot={safe(title)} data-w={width} className="w-full h-[400px]" />
+      <div ref={ref} data-plot={filename} data-image-name={filename} data-w={width} className="w-full h-[400px]" />
     </div>
   )
 }

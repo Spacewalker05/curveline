@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button'
 import type { Scan } from './core'
 import { inspectFiles, type InspectFile } from './api'
 import { ExpandButton } from './Expand'
+import { plotImageName } from './plot-export'
 import { card, cv, DropZone, Field, FileChips, gridStyle, minorTicks, paperAxis, pixelColor, Section, sectionLabel, Shell, Toggle, tr } from './ui'
 
 const flip = (s: Scan | undefined, invert: boolean) => (s && invert ? { V: s.V, I: s.I.map((i) => -i) } : s)
 
-function LineChart({ title, yLabel, scans, yOf, dark, grid, positive = false }: { title: string; yLabel: string; scans: { name: string; s: Scan; color: string }[]; yOf: (i: number, s: Scan) => number; dark: boolean; grid: boolean; positive?: boolean }) {
+function LineChart({ title, yLabel, filename, scans, yOf, dark, grid, positive = false }: { title: string; yLabel: string; filename: string; scans: { name: string; s: Scan; color: string }[]; yOf: (i: number, s: Scan) => number; dark: boolean; grid: boolean; positive?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = ref.current
@@ -33,9 +34,9 @@ function LineChart({ title, yLabel, scans, yOf, dark, grid, positive = false }: 
         yaxis: { ...axis(yLabel), ...(positive ? { range: [0, Math.max(1, ...scans.flatMap(({ s }) => s.I.map((i) => yOf(i, s)))) * 1.08] } : {}) },
         hovermode: 'closest', dragmode: 'zoom', showlegend: false,
       },
-      { displaylogo: false, displayModeBar: false, responsive: true, scrollZoom: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'], toImageButtonOptions: { filename: title.replace(/\W+/g, '_'), scale: 3 } },
+      { displaylogo: false, displayModeBar: false, responsive: true, scrollZoom: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'], toImageButtonOptions: { filename, scale: 3 } },
     )
-  }, [scans, yOf, yLabel, title, dark, grid, positive])
+  }, [scans, yOf, yLabel, title, filename, dark, grid, positive])
   useEffect(() => () => { if (ref.current) Plotly.purge(ref.current) }, [])
   return (
     <div className={`${card} p-5`}>
@@ -43,7 +44,7 @@ function LineChart({ title, yLabel, scans, yOf, dark, grid, positive = false }: 
         <div className={sectionLabel}>{title}</div>
         <ExpandButton getEl={() => ref.current} title={title} />
       </div>
-      <div ref={ref} className="rounded-lg overflow-hidden" />
+      <div ref={ref} data-image-name={filename} className="rounded-lg overflow-hidden" />
     </div>
   )
 }
@@ -156,9 +157,9 @@ export default function Inspect({ onBack, dark, setDark }: { onBack: () => void;
               <div className={`${card} p-5 text-sm text-bad`}>{err}</div>
             ) : (
               <>
-                <LineChart title={`Current vs Voltage — ${label}`} yLabel="Current (mA)" scans={scans} yOf={toMa} dark={dark} grid={grid} />
+                <LineChart title={`Current vs Voltage — ${label}`} yLabel="Current (mA)" filename={plotImageName('current', cur?.name ?? '', allPixels ? undefined : pair?.label)} scans={scans} yOf={toMa} dark={dark} grid={grid} />
                 {a > 0 ? (
-                  <LineChart title={`Current density vs Voltage — ${label}`} yLabel="Current Density (mA/cm²)" scans={scans} yOf={toJ} dark={dark} grid={grid} positive />
+                  <LineChart title={`Current density vs Voltage — ${label}`} yLabel="Current Density (mA/cm²)" filename={plotImageName('jsc', cur?.name ?? '', allPixels ? undefined : pair?.label)} scans={scans} yOf={toJ} dark={dark} grid={grid} positive />
                 ) : (
                   <div className={`${card} p-5 text-sm text-muted`}>Enter an active area to show the J–V plot.</div>
                 )}

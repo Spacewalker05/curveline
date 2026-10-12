@@ -259,9 +259,10 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
             </Panel>
 
             <div className="grid md:grid-cols-2 gap-5">
-              {BOX.map((k) => (
-                <BoxChart key={k} metric={METRICS.find((m) => m.key === k)!} columns={columns} dark={dark} />
-              ))}
+              {BOX.map((k) => {
+                const metric = METRICS.find((m) => m.key === k)
+                return metric ? <BoxChart key={k} metric={metric} columns={columns} dark={dark} outputName={out || 'jv_results'} /> : null
+              })}
             </div>
 
             {stats && res.statistics && res.statistics.length > 0 && (

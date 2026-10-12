@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import Plotly from 'plotly.js-cartesian-dist-min'
 import type { MetricKey, Metrics } from './api'
 import { ExpandButton } from './Expand'
+import { plotImageName } from './plot-export'
 import { card, cv, minorTicks, paperAxis, sectionLabel } from './ui'
 
 type Dir = 'reverse' | 'forward'
@@ -38,8 +39,9 @@ export function groupValues(columns: Col[], key: MetricKey) {
 
 const wrapLabel = (label: string) => label.replace(/ · /g, '<br>')
 
-export default function BoxChart({ metric, columns, dark }: { metric: Metric; columns: Col[]; dark: boolean }) {
+export default function BoxChart({ metric, columns, dark, outputName }: { metric: Metric; columns: Col[]; dark: boolean; outputName: string }) {
   const ref = useRef<HTMLDivElement>(null)
+  const filename = plotImageName(metric.label, outputName)
 
   useEffect(() => {
     if (!ref.current) return
@@ -64,13 +66,13 @@ export default function BoxChart({ metric, columns, dark }: { metric: Metric; co
     }).filter((trace) => trace.y.length)
     Plotly.react(ref.current, traces, {
       paper_bgcolor: cv('--c-plot-transparent'), plot_bgcolor: cv('--c-plot-transparent'),
-      margin: { l: 56, r: 16, t: 12, b: 36 },
+      margin: { l: 80, r: 16, t: 12, b: 36 },
       font: { family: 'Inter', color: muted }, showlegend: false,
       xaxis: { ...paperAxis(ink, muted), showgrid: false, ticks: '', tickfont: { size: 12, color: ink } },
-      yaxis: { ...paperAxis(ink, muted), showgrid: false, minor: minorTicks(ink) },
+      yaxis: { ...paperAxis(ink, muted), title: { text: `${metric.label} (${metric.unit})`, standoff: 12 }, automargin: true, showgrid: false, minor: minorTicks(ink) },
       hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: ink } },
-    }, { displaylogo: false, responsive: true, displayModeBar: false })
-  }, [metric, columns, dark])
+    }, { displaylogo: false, responsive: true, displayModeBar: false, toImageButtonOptions: { filename, scale: 3 } })
+  }, [metric, columns, dark, filename])
 
   useEffect(() => {
     const el = ref.current
@@ -88,7 +90,7 @@ export default function BoxChart({ metric, columns, dark }: { metric: Metric; co
         <ExpandButton getEl={() => ref.current} title={`${metric.label} (${metric.unit})`} />
       </div>
       <div className="overflow-x-auto mt-2">
-        <div ref={ref} className="w-full h-[400px] min-w-[420px]" />
+        <div ref={ref} data-image-name={filename} className="w-full h-[400px] min-w-[420px]" />
       </div>
     </div>
   )

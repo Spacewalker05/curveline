@@ -53,7 +53,7 @@ const cards: { mode: Mode; title: string; desc: string; items: string[]; art: Re
 
 export default function Home({ onOpen, dark, setDark }: { onOpen: (m: Mode) => void; dark: boolean; setDark: (v: boolean) => void }) {
   return (
-    <div className="h-full flex flex-col bg-bg text-fg overflow-y-auto scroll-quiet">
+    <div className="h-full flex flex-col bg-bg text-fg overflow-y-auto scroll-quiet smooth-scroll">
       <header className="fade-in shrink-0 h-16 px-6 flex items-center border-b border-line">
         <Brand />
         <div className="ml-auto">
