@@ -204,7 +204,7 @@ def calculate_parameters(scan_df, label, active_area, irradiance,
     Jmp = (Imp / active_area) * 1000
     Pmax = -Vmp * Imp
 
-        if Voc > 0 and Isc != 0:
+    if Voc > 0 and Isc != 0:
         FF = Pmax / (Voc * abs(Isc))
     else:
         FF = float("nan")
