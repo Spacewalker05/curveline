@@ -1,0 +1,46 @@
+name: Keep Streamlit awake
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # every 6 hours
+  workflow_dispatch:
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_URL: ${{ vars.STREAMLIT_APP_URL || 'https://jvanalyzer.streamlit.app' }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Visit app and wake it if sleeping
+        run: |
+          cat > wake.py <<'PY'
+          import os, asyncio
+          from playwright.async_api import async_playwright
+          URL = os.environ["APP_URL"]
+          async def main():
+              async with async_playwright() as p:
+                  b = await p.chromium.launch(headless=True)
+                  page = await b.new_page()
+                  await page.goto(URL, wait_until="domcontentloaded", timeout=90000)
+                  await page.wait_for_timeout(8000)
+                  btn = page.get_by_role("button", name="Yes, get this app back up!")
+                  if await btn.count():
+                      print("App was asleep - waking it")
+                      await btn.first.click()
+                      await page.wait_for_timeout(60000)
+                  else:
+                      print("App is awake")
+                      await page.wait_for_timeout(20000)
+                  print("Title:", await page.title())
+                  await b.close()
+          asyncio.run(main())
+          PY
+          python wake.py
