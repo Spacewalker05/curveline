@@ -283,6 +283,12 @@ export function calcParams(scan: Scan, label: string, c: Cfg, logs: Log[]): Metr
   let FF = NaN
   if (Voc > 0 && Isc !== 0) FF = Pmax / (Voc * Math.abs(Isc))
   else logs.push({ level: 'warn', message: `'${label}': Voc or Isc is zero — FF/PCE unreliable.` })
+  // A fill factor outside 0–100 % is physically impossible (dead/shorted pixel, near-zero Isc or Voc);
+  // drop it so one bad pixel can't stretch the FF chart and squash every real value onto one line.
+  if (Number.isFinite(FF) && (FF <= 0 || FF > 1)) {
+    logs.push({ level: 'warn', message: `'${label}': FF ${(FF * 100).toFixed(1)} % is outside 0–100 % — excluded.` })
+    FF = NaN
+  }
   const PCE = ((Pmax * 1000) / PIN) * 100
   let Rs = NaN, Rsh = NaN, FF0 = NaN, dFF = NaN
   if (c.advanced) {
