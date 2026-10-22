@@ -204,12 +204,19 @@ def calculate_parameters(scan_df, label, active_area, irradiance,
     Jmp = (Imp / active_area) * 1000
     Pmax = -Vmp * Imp
 
-    if Voc > 0 and Isc != 0:
+        if Voc > 0 and Isc != 0:
         FF = Pmax / (Voc * abs(Isc))
     else:
         FF = float("nan")
         logs.append(("warn",
             f"'{label}': Voc or Isc is zero — FF/PCE unreliable."))
+
+    # --- ADD THIS: Filter out unphysical / bad FF ---
+    if np.isfinite(FF) and (FF <= 0 or FF > 1):
+        logs.append(("warn", 
+            f"'{label}': FF {FF * 100:.1f} % is outside 0–100 % — excluded."))
+        FF = float("nan")
+    # ------------------------------------------------
 
     PCE = (Pmax * 1000) / PIN * 100
 
