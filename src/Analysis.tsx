@@ -73,7 +73,6 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [res, setRes] = useState<AnalysisResponse | null>(null)
-  const [logOpen, setLogOpen] = useState(false)
 
   const pin = (parseFloat(area) || 0) * (parseFloat(irr) || 0)
 
@@ -106,19 +105,7 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
     }
   }
 
-  const columns = useMemo(() => {
-    if (!res) return []
-    const multi = res.files.length > 1
-    return res.files.flatMap((f) =>
-      f.pixels.map((px: Pixel) => ({
-        label: multi ? `${f.name.replace(/\.[^.]+$/, '')} · ${px.label}` : px.label,
-        scans: (['reverse', 'forward'] as const).filter((s) => px[s]).map((s) => ({ name: s, m: px[s] as Metrics })),
-        hi: px.hysteresis_index,
-      })),
-    )
-  }, [res])
-  const grouped = columns.length > 1
-  const rows = METRICS.filter((m) => !m.adv || adv)
+  const columns = useMemo(() => buildColumns(res), [res])
   const nPix = columns.length
 
   const sidebar = (
@@ -191,6 +178,34 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
             </div>
           </div>
         ) : (
+          <AnalysisResults res={res} adv={adv} stats={stats} dark={dark} out={out} />
+        )}
+      </div>
+
+    </Shell>
+  )
+}
+
+export function buildColumns(res: AnalysisResponse | null) {
+  if (!res) return []
+  const multi = res.files.length > 1
+  return res.files.flatMap((f) =>
+    f.pixels.map((px: Pixel) => ({
+      label: multi ? `${f.name.replace(/\.[^.]+$/, '')} · ${px.label}` : px.label,
+      scans: (['reverse', 'forward'] as const).filter((s) => px[s]).map((s) => ({ name: s, m: px[s] as Metrics })),
+      hi: px.hysteresis_index,
+    })),
+  )
+}
+
+export function AnalysisResults({ res, adv, stats, dark, out }: { res: AnalysisResponse; adv: boolean; stats: boolean; dark: boolean; out: string }) {
+  const [logOpen, setLogOpen] = useState(false)
+  const columns = useMemo(() => buildColumns(res), [res])
+  const grouped = columns.length > 1
+  const rows = METRICS.filter((m) => !m.adv || adv)
+  const nPix = columns.length
+  return (
+    <>
           <div className="max-w-[1200px] mx-auto space-y-5">
             {res.summary && (
               <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -319,9 +334,6 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
               </div>
             )}
           </div>
-        )}
-      </div>
-
       {res && (
         <div className="sticky bottom-0 z-20 border-t border-line bg-bg/90 backdrop-blur px-6 lg:px-8 py-3 flex flex-wrap items-center gap-3">
           <span className="text-xs text-muted mr-1">Export Results:</span>
@@ -341,6 +353,6 @@ export default function Analysis({ onBack, dark, setDark }: { onBack: () => void
           )}
         </div>
       )}
-    </Shell>
+    </>
   )
 }

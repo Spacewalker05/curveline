@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import 'tailwindcss';
 
+@custom-variant dark (&:is(.dark *));
+
+
 @theme inline {
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -229,8 +232,8 @@ input[type='number'] {
   --c-plot-parameter-forward-fill: #6a8caf26;
   --c-plot-parameter-reverse-fill: #d9775726;
   --c-plot-ink: #171717;
-  --c-plot-grid: #17171733;
-  --c-plot-grid-minor: #17171714;
+  --c-plot-grid: #1717174d;
+  --c-plot-grid-minor: #17171726;
   --c-plot-forward: #f04444;
   --c-plot-reverse: #555555;
   --c-plot-pixel-green: #00a84a;

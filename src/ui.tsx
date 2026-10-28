@@ -10,6 +10,15 @@ export const paperAxis = (fg: string, muted: string) => ({
   showline: true, mirror: true, linecolor: fg, linewidth: 1.2, ticks: 'inside', ticklen: 6, tickwidth: 1.2, tickcolor: fg,
   zeroline: false, tickfont: { family: 'JetBrains Mono', size: 11, color: muted },
 })
+/** Origin-style publication axis: thick black box, inward ticks on all four sides, Arial. */
+export const originAxis = (ink: string, title: string, minorStep?: number) => ({
+  showline: true, mirror: 'allticks', linecolor: ink, linewidth: 2,
+  ticks: 'inside', ticklen: 7, tickwidth: 2, tickcolor: ink,
+  minor: { ticks: 'inside', ticklen: 4, tickwidth: 1.5, tickcolor: ink, ...(minorStep ? { dtick: minorStep } : { nticks: 2 }) },
+  zeroline: false, showgrid: false,
+  tickfont: { family: 'Arial, Helvetica, sans-serif', size: 15, color: ink },
+  title: { text: `<b>${title}</b>`, font: { family: 'Arial, Helvetica, sans-serif', size: 18, color: ink }, standoff: 12 },
+})
 export const minorTicks = (fg: string) => ({ ticks: 'inside', ticklen: 3, tickwidth: 1, tickcolor: fg, showgrid: false })
 /**
  * Grid lines for one axis, split by level: major lines stay readable,
@@ -100,9 +109,9 @@ export function Check({ on, onChange, label }: { on: boolean; onChange: () => vo
   )
 }
 
-function PanelToggle({ open, onClick }: { open: boolean; onClick: () => void }) {
+function PanelToggle({ open, onClick, onPeekEnter, onPeekLeave }: { open: boolean; onClick: () => void; onPeekEnter: () => void; onPeekLeave: () => void }) {
   return (
-    <button onClick={onClick} aria-label={open ? 'Hide side panel' : 'Show side panel'} title={open ? 'Hide side panel' : 'Show side panel'} className={`w-9 h-9 -ml-2 grid place-items-center rounded-lg text-muted hover:bg-panel hover:text-fg cursor-pointer ${tr}`}>
+    <button onClick={onClick} onMouseEnter={onPeekEnter} onMouseLeave={onPeekLeave} aria-label={open ? 'Hide side panel' : 'Show side panel'} title={open ? 'Hide side panel' : 'Show side panel'} className={`w-9 h-9 -ml-2 grid place-items-center rounded-lg text-muted hover:bg-panel hover:text-fg cursor-pointer ${tr}`}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
         <path d="M9.5 4.5v15" />
@@ -193,10 +202,17 @@ const asideCls = (open: boolean) =>
 
 export function Shell({ crumb, dark, setDark, onBack, sidebar, action, status, children }: { crumb: string; dark: boolean; setDark: (v: boolean) => void; onBack: () => void; sidebar: ReactNode; action: ReactNode; status: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(true)
+  const [peek, setPeek] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // While the panel is toggled hidden, hovering the toggle (or the panel itself) peeks it open;
+  // leaving either closes it again after a short grace period so the pointer can travel between them.
+  const openPeek = () => { clearTimeout(closeTimer.current); if (!open) setPeek(true) }
+  const closePeek = () => { closeTimer.current = setTimeout(() => setPeek(false), 200) }
+  const shown = open || peek
   return (
     <div className="h-full flex flex-col bg-bg text-fg">
       <header className="shrink-0 h-16 px-6 flex items-center gap-3.5 bg-bg border-b border-line">
-        <PanelToggle open={open} onClick={() => setOpen(!open)} />
+        <PanelToggle open={open} onClick={() => { clearTimeout(closeTimer.current); setPeek(false); setOpen(!open) }} onPeekEnter={openPeek} onPeekLeave={closePeek} />
         <Brand />
         <span className="text-dim">/</span>
         <div className="text-sm text-muted">{crumb}</div>
@@ -205,13 +221,17 @@ export function Shell({ crumb, dark, setDark, onBack, sidebar, action, status, c
         </div>
       </header>
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        <aside className={asideCls(open)}>
+        <aside
+          className={asideCls(shown)}
+          onMouseEnter={openPeek}
+          onMouseLeave={closePeek}
+        >
           <div className="flex flex-col flex-1 min-h-0 lg:w-[320px]">
             <div className="flex-1 overflow-y-auto scroll-quiet px-5 pt-5 pb-4">
               <BackRow onBack={onBack} />
               {sidebar}
             </div>
-            <div className="p-5 border-t border-line bg-bg">{action}</div>
+            {action && <div className="p-5 border-t border-line bg-bg">{action}</div>}
           </div>
         </aside>
         <main className="fade-in flex-1 min-w-0 h-full overflow-y-auto scroll-quiet bg-panel/40 flex flex-col">{children}</main>

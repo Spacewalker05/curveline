@@ -2,9 +2,23 @@
 import type { ReactNode } from 'react'
 import { Brand, card, sectionLabel, ThemeButton, tr } from './ui'
 
-export type Mode = 'params' | 'plot' | 'inspect'
+export type Mode = 'dashboard' | 'params' | 'plot' | 'inspect'
 
 const cards: { mode: Mode; title: string; desc: string; items: string[]; art: ReactNode }[] = [
+  {
+    mode: 'dashboard',
+    title: 'Dashboard',
+    desc: 'Drop a solar simulator scan file once and see I–V and J–V plots, every parameter, box plots and exports on one screen.',
+    items: ['I–V and J–V plots', 'KPIs and full parameter table', 'Forward / reverse box plots', 'Excel, CSV and PNG export'],
+    art: (
+      <div className="grid grid-cols-2 gap-2 w-full">
+        <svg viewBox="0 0 80 40" className="w-full rounded-md bg-bg border border-line" fill="none"><path d="M6 10 C40 10 52 12 60 22 S70 34 76 36" stroke="var(--c-accent)" strokeWidth="2" /></svg>
+        <div className="rounded-md bg-bg border border-line p-2 space-y-1.5"><div className="h-1.5 w-8 rounded-full bg-line" /><div className="h-2.5 w-12 rounded-full bg-accent/70" /></div>
+        <div className="rounded-md bg-bg border border-line p-2 space-y-1"><div className="h-1 w-full rounded-full bg-line" /><div className="h-1 w-full rounded-full bg-line" /><div className="h-1 w-2/3 rounded-full bg-line" /></div>
+        <svg viewBox="0 0 80 40" className="w-full rounded-md bg-bg border border-line" fill="none"><rect x="16" y="10" width="14" height="20" stroke="var(--c-accent)" strokeWidth="2" /><rect x="48" y="14" width="14" height="16" stroke="var(--c-muted)" strokeWidth="2" /></svg>
+      </div>
+    ),
+  },
   {
     mode: 'params',
     title: 'Parameter Calculation',
@@ -69,7 +83,7 @@ export default function Home({ onOpen, dark, setDark }: { onOpen: (m: Mode) => v
           <p style={{ ['--d' as any]: '160ms' }} className="rise mt-4 text-muted max-w-[520px]">
             Calculate device parameters or visualise parameter data across samples. Each workflow has its own workspace.
           </p>
-          <div className="grid md:grid-cols-3 gap-5 mt-10">
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mt-10">
             {cards.map((c, ci) => (
               <button key={c.mode} style={{ ['--d' as any]: `${260 + ci * 110}ms` }} onClick={() => onOpen(c.mode)} className={`${card} group text-left p-6 cursor-pointer hover:border-accent hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(217,119,87,0.14)] ${tr} outline-none focus-visible:ring-2 focus-visible:ring-accent/50`}>
                 <div className="h-[110px] rounded-xl bg-panel/60 border border-line p-4 grid place-items-center">{c.art}</div>

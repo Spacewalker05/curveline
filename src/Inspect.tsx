@@ -5,36 +5,36 @@ import type { Scan } from './core'
 import { inspectFiles, type InspectFile } from './api'
 import { ExpandButton } from './Expand'
 import { plotImageName } from './plot-export'
-import { card, cv, DropZone, Field, FileChips, gridStyle, minorTicks, paperAxis, pixelColor, Section, sectionLabel, Shell, Toggle, tr } from './ui'
+import { card, cv, DropZone, Field, FileChips, gridStyle, originAxis, pixelColor, Section, sectionLabel, Shell, Toggle, tr } from './ui'
 
 const flip = (s: Scan | undefined, invert: boolean) => (s && invert ? { V: s.V, I: s.I.map((i) => -i) } : s)
 
-function LineChart({ title, yLabel, filename, scans, yOf, dark, grid, positive = false }: { title: string; yLabel: string; filename: string; scans: { name: string; s: Scan; color: string }[]; yOf: (i: number, s: Scan) => number; dark: boolean; grid: boolean; positive?: boolean }) {
+export function LineChart({ title, yLabel, filename, scans, yOf, dark, grid, positive = false }: { title: string; yLabel: string; filename: string; scans: { name: string; s: Scan; color: string }[]; yOf: (i: number, s: Scan) => number; dark: boolean; grid: boolean; positive?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = ref.current
     if (!el) return
     const ink = cv('--c-plot-ink'), paper = cv('--c-plot-paper')
-    const font = { family: 'Arial, sans-serif', size: 14, color: ink }
+    const font = { family: 'Arial, Helvetica, sans-serif', size: 15, color: ink }
     const g = gridStyle(grid)
-    const axis = (t: string) => ({
-      ...paperAxis(ink, ink), mirror: 'allticks', ticks: 'inside', ticklen: 8, tickwidth: 1.5, linewidth: 1.5, ...g.major,
-      minor: { ...minorTicks(ink), ...g.minor, nticks: 5 }, zeroline: true, zerolinecolor: cv('--c-dim'), zerolinewidth: 1,
-      tickfont: font, title: { text: t, font: { ...font, size: 16 }, standoff: 10 },
+    const axis = (t: string, minorStep?: number) => ({
+      ...originAxis(ink, t, minorStep), ...g.major, minor: { ...originAxis(ink, t, minorStep).minor, ...g.minor },
+      ...(grid ? { zeroline: true, zerolinecolor: ink, zerolinewidth: 1 } : {}),
     })
     Plotly.react(
       el,
       scans.map(({ name, s, color }) => ({
-        type: 'scatter', mode: 'lines', name, x: s.V, y: s.I.map((i) => yOf(i, s)), line: { color, width: 2 },
-        hovertemplate: `${name}<br>V = %{x:.4f} V<br>${yLabel.split(' (')[0]} = %{y:.4f}<extra></extra>`,
+        type: 'scatter', mode: 'lines', name, x: s.V, y: s.I.map((i) => yOf(i, s)), line: { color, width: 2.5, dash: /Forward/.test(name) ? 'dash' : 'solid' },
+        hovertemplate: `${name}<br>V = %{x:.4f} V<br>${yLabel.split(" (")[0]?.replace(/<[^>]+>/g, '')} = %{y:.4f}<extra></extra>`,
       })),
       {
-        paper_bgcolor: paper, plot_bgcolor: paper, font, height: 420, margin: { l: 72, r: 24, t: 20, b: 60 },
-        xaxis: { ...axis('Voltage (V)'), ...(positive ? { rangemode: 'nonnegative' } : {}) },
+        paper_bgcolor: paper, plot_bgcolor: paper, font, height: 440, margin: { l: 80, r: 28, t: 24, b: 68 },
+        legend: { x: 0.02, y: 0.02, xanchor: 'left', yanchor: 'bottom', bgcolor: 'rgba(0,0,0,0)', borderwidth: 0, font: { ...font, size: 12 } },
+        xaxis: { ...axis('Voltage (V)', 0.05), ...(positive ? { rangemode: 'nonnegative' } : {}) },
         yaxis: { ...axis(yLabel), ...(positive ? { range: [0, Math.max(1, ...scans.flatMap(({ s }) => s.I.map((i) => yOf(i, s)))) * 1.08] } : {}) },
         hovermode: 'closest', dragmode: 'zoom', showlegend: false,
       },
-      { displaylogo: false, displayModeBar: false, responsive: true, scrollZoom: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'], toImageButtonOptions: { filename, scale: 3 } },
+      { displaylogo: false, displayModeBar: false, responsive: true, scrollZoom: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'], toImageButtonOptions: { filename, width: 900, height: 750, scale: 2 } },
     )
   }, [scans, yOf, yLabel, title, filename, dark, grid, positive])
   useEffect(() => () => { if (ref.current) Plotly.purge(ref.current) }, [])
@@ -44,7 +44,7 @@ function LineChart({ title, yLabel, filename, scans, yOf, dark, grid, positive =
         <div className={sectionLabel}>{title}</div>
         <ExpandButton getEl={() => ref.current} title={title} />
       </div>
-      <div ref={ref} data-image-name={filename} className="rounded-lg overflow-hidden" />
+      <div ref={ref} data-image-name={filename} data-legend="1" className="overflow-hidden" />
     </div>
   )
 }
@@ -86,7 +86,7 @@ export default function Inspect({ onBack, dark, setDark }: { onBack: () => void;
     if (!pair) return []
     const out: { name: string; s: Scan; color: string }[] = []
     const add = (p: typeof pair, color: string, filePrefix: string) => {
-      const prefix = `${filePrefix}${p.label ? `${p.label} · ` : ''}`
+      const prefix = `${filePrefix}${allPixels && pairs.length > 1 ? (p.label ? `${p.label} · ` : '') : ''}`
       const f = flip(p.forward, invert), r = flip(p.reverse, invert), s1 = flip(p.single, invert)
       if (f) out.push({ name: `${prefix}Forward`, s: f, color })
       if (r) out.push({ name: `${prefix}Reverse`, s: r, color })
@@ -192,7 +192,7 @@ export default function Inspect({ onBack, dark, setDark }: { onBack: () => void;
               <>
                 <LineChart title={`Current vs Voltage — ${label}`} yLabel="Current (mA)" filename={plotImageName('current', imgFile, allPixels ? undefined : pair?.label)} scans={scans} yOf={toMa} dark={dark} grid={grid} />
                 {a > 0 ? (
-                  <LineChart title={`Current density vs Voltage — ${label}`} yLabel="Current Density (mA/cm²)" filename={plotImageName('jsc', imgFile, allPixels ? undefined : pair?.label)} scans={scans} yOf={toJ} dark={dark} grid={grid} positive />
+                  <LineChart title={`Current density vs Voltage — ${label}`} yLabel="Current Density (mA cm<sup>−2</sup>)" filename={plotImageName('jsc', imgFile, allPixels ? undefined : pair?.label)} scans={scans} yOf={toJ} dark={dark} grid={grid} positive />
                 ) : (
                   <div className={`${card} p-5 text-sm text-muted`}>Enter an active area to show the J–V plot.</div>
                 )}

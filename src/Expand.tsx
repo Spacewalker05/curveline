@@ -32,6 +32,7 @@ function Modal({ getEl, title, onClose }: { getEl: () => HTMLElement | null; tit
     layout.autosize = true
     layout.margin = { ...layout.margin, t: Math.max(layout.margin?.t ?? 0, 56) }
     layout.dragmode = 'zoom'
+    if (src.dataset.legend) layout.showlegend = true
     Plotly.react(el, data, layout, { displaylogo: false, responsive: true, displayModeBar: true, scrollZoom: true, modeBarButtonsToRemove: ['lasso2d', 'select2d'], toImageButtonOptions: { ...src._context?.toImageButtonOptions, filename: src.dataset.imageName || src.dataset.plot || 'plot' } })
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', key)
