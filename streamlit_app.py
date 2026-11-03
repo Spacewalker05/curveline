@@ -27,7 +27,20 @@ FRONTEND = Path(__file__).parent / "streamlit_frontend"
 
 st.set_page_config(page_title="JV Analyzer", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(
-    "<style>header,footer{display:none!important}.block-container{padding:0!important;max-width:100%!important}</style>",
+    """<style>
+    header, footer { display: none !important; }
+    .block-container { padding: 0 !important; max-width: 100% !important; }
+    [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] {
+        gap: 0 !important;
+    }
+    [data-testid="stMain"] { overflow: hidden !important; }
+    [data-testid="stCustomComponentV1"],
+    iframe[title*="jv_ui"] {
+        height: 100vh !important;
+        height: 100dvh !important;
+        display: block;
+    }
+    </style>""",
     unsafe_allow_html=True,
 )
 

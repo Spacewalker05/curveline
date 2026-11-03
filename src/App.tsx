@@ -4,6 +4,7 @@ import Analysis from './Analysis'
 import Home, { type Mode } from './Home'
 import Plotting from './Plotting'
 import Inspect from './Inspect'
+import Dashboard from './Dashboard'
 
 export default function App() {
   const [mode, setMode] = useState<Mode | null>(null)
@@ -28,7 +29,7 @@ export default function App() {
       </div>
     )}
     {!splash && <div key={mode ?? "home"} className="h-full fade-in">
-      {!mode ? <Home onOpen={setMode} dark={dark} setDark={setDark} /> : mode === 'plot' ? <Plotting onBack={back} dark={dark} setDark={setDark} /> : mode === 'inspect' ? <Inspect onBack={back} dark={dark} setDark={setDark} /> : <Analysis onBack={back} dark={dark} setDark={setDark} />}
+      {!mode ? <Home onOpen={setMode} dark={dark} setDark={setDark} /> : mode === 'plot' ? <Plotting onBack={back} dark={dark} setDark={setDark} /> : mode === 'dashboard' ? <Dashboard onBack={back} dark={dark} setDark={setDark} /> : mode === 'inspect' ? <Inspect onBack={back} dark={dark} setDark={setDark} /> : <Analysis onBack={back} dark={dark} setDark={setDark} />}
     </div>}
     </>
   )

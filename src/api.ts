@@ -63,11 +63,18 @@ function startStreamlit() {
     else p.resolve(r.result)
   })
   toStreamlit('streamlit:componentReady', { apiVersion: 1 })
-  let h = 900
-  try {
-    h = Math.max(700, (window.parent as Window).innerHeight - 24)
-  } catch {}
-  toStreamlit('streamlit:setFrameHeight', { height: h })
+  // The host sizes the iframe to 100dvh, including cross-origin deployments.
+  // Keep Streamlit's stored height in sync without a 700px minimum or resize loop.
+  let lastHeight = 0
+  const syncHeight = () => {
+    const height = Math.round(window.innerHeight)
+    if (height <= 0 || height === lastHeight) return
+    lastHeight = height
+    toStreamlit('streamlit:setFrameHeight', { height })
+  }
+  window.addEventListener('resize', syncHeight)
+  window.visualViewport?.addEventListener('resize', syncHeight)
+  syncHeight()
 }
 startStreamlit()
 
@@ -79,13 +86,22 @@ const b64 = (f: File) =>
     r.readAsDataURL(f)
   })
 
-async function viaStreamlit<T>(kind: 'analyze' | 'inspect', files: File[], params: object): Promise<T> {
+async function sendStreamlit<T>(kind: 'analyze' | 'inspect', files: File[], params: object): Promise<T> {
   const id = Math.random().toString(36).slice(2)
   const payload = { id, kind, params, files: await Promise.all(files.map(async (f) => ({ name: f.name, data: await b64(f) }))) }
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject })
     toStreamlit('streamlit:setComponentValue', { value: payload, dataType: 'json' })
   })
+}
+
+// Streamlit has a single component-value slot. Serialize requests so Dashboard's
+// simultaneous inspect/per-file/combined analyses cannot overwrite one another.
+let requestQueue: Promise<unknown> = Promise.resolve()
+function viaStreamlit<T>(kind: 'analyze' | 'inspect', files: File[], params: object): Promise<T> {
+  const result = requestQueue.then(() => sendStreamlit<T>(kind, files, params))
+  requestQueue = result.catch(() => undefined)
+  return result
 }
 
 export async function runAnalysis(files: File[], params: AnalysisParams): Promise<AnalysisResponse> {

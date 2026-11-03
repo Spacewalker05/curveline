@@ -50,11 +50,9 @@ export default function BoxChart({ metric, columns, dark, outputName }: { metric
     const ink = cv('--c-fg')
     const surface = cv('--c-surface')
     const traces = (['reverse', 'forward'] as const).map((dir) => {
-      const valid = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
-        const values = columns.flatMap((column) => column.scans
-          .filter((scan) => scan.name === dir && valid(scan.m[metric.key]))
-          .map((scan) => ({ y: scan.m[metric.key], label: column.label })))
-
+      const values = columns.flatMap((column) => column.scans
+        .filter((scan) => scan.name === dir && valid(scan.m[metric.key]))
+        .map((scan) => ({ y: scan.m[metric.key], label: column.label })))
       const color = cv(dir === 'reverse' ? '--c-accent' : '--c-plot-parameter-forward')
       return {
         type: 'box', name: DIR_STYLE[dir].name,
