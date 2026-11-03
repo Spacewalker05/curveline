@@ -289,6 +289,7 @@ export function calcParams(scan: Scan, label: string, c: Cfg, logs: Log[]): Metr
     logs.push({ level: 'warn', message: `'${label}': FF ${(FF * 100).toFixed(1)} % is outside 0–100 % — excluded.` })
     FF = NaN
   }
+  const jscMA = Math.abs((Isc / c.area) * 1000)
   const PCE = ((Pmax * 1000) / PIN) * 100
   let Rs = NaN, Rsh = NaN, FF0 = NaN, dFF = NaN
   if (c.advanced) {
@@ -304,7 +305,7 @@ export function calcParams(scan: Scan, label: string, c: Cfg, logs: Log[]): Metr
   }
   const r = (x: number) => (Number.isFinite(x) ? Math.round(x * 1e6) / 1e6 : null)
   return {
-    voc: r(Voc), isc: r(Math.abs(Isc) * 1000), jsc: r(Math.abs((Isc / c.area) * 1000)),
+    voc: r(Voc), isc: r(Math.abs(Isc) * 1000), jsc: r(jscMA),
     vmpp: r(Vmp), imp: r(Math.abs(Imp) * 1000), jmpp: r(Math.abs((Imp / c.area) * 1000)),
     pmax: r(Pmax * 1000), ff: r(FF * 100), pce: r(PCE),
     rs: r(Rs), rsh: r(Rsh), ff0: r(FF0 * 100), dff: r(dFF * 100),

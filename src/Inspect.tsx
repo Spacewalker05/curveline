@@ -9,7 +9,7 @@ import { card, cv, DropZone, Field, FileChips, gridStyle, originAxis, pixelColor
 
 const flip = (s: Scan | undefined, invert: boolean) => (s && invert ? { V: s.V, I: s.I.map((i) => -i) } : s)
 
-export function LineChart({ title, yLabel, filename, scans, yOf, dark, grid, positive = false }: { title: string; yLabel: string; filename: string; scans: { name: string; s: Scan; color: string }[]; yOf: (i: number, s: Scan) => number; dark: boolean; grid: boolean; positive?: boolean }) {
+export function LineChart({ title, yLabel, filename, scans, yOf, dark, grid, positive = false, compact = false }: { title: string; yLabel: string; filename: string; scans: { name: string; s: Scan; color: string }[]; yOf: (i: number, s: Scan) => number; dark: boolean; grid: boolean; positive?: boolean; compact?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = ref.current
@@ -28,7 +28,7 @@ export function LineChart({ title, yLabel, filename, scans, yOf, dark, grid, pos
         hovertemplate: `${name}<br>V = %{x:.4f} V<br>${yLabel.split(" (")[0]?.replace(/<[^>]+>/g, '')} = %{y:.4f}<extra></extra>`,
       })),
       {
-        paper_bgcolor: paper, plot_bgcolor: paper, font, height: 440, margin: { l: 80, r: 28, t: 24, b: 68 },
+        paper_bgcolor: paper, plot_bgcolor: paper, font, height: compact ? 340 : 440, margin: { l: 80, r: 28, t: 24, b: 68 },
         legend: { x: 0.02, y: 0.02, xanchor: 'left', yanchor: 'bottom', bgcolor: 'rgba(0,0,0,0)', borderwidth: 0, font: { ...font, size: 12 } },
         xaxis: { ...axis('Voltage (V)', 0.05), ...(positive ? { rangemode: 'nonnegative' } : {}) },
         yaxis: { ...axis(yLabel), ...(positive ? { range: [0, Math.max(1, ...scans.flatMap(({ s }) => s.I.map((i) => yOf(i, s)))) * 1.08] } : {}) },
@@ -36,15 +36,15 @@ export function LineChart({ title, yLabel, filename, scans, yOf, dark, grid, pos
       },
       { displaylogo: false, displayModeBar: false, responsive: true, scrollZoom: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'], toImageButtonOptions: { filename, width: 900, height: 750, scale: 2 } },
     )
-  }, [scans, yOf, yLabel, title, filename, dark, grid, positive])
+  }, [scans, yOf, yLabel, title, filename, dark, grid, positive, compact])
   useEffect(() => () => { if (ref.current) Plotly.purge(ref.current) }, [])
   return (
-    <div className={`${card} p-5`}>
-      <div className="flex items-center justify-between mb-3">
-        <div className={sectionLabel}>{title}</div>
+    <div className={`${card} min-w-0 ${compact ? 'p-3' : 'p-5'}`}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className={`${sectionLabel} min-w-0 break-words`}>{title}</div>
         <ExpandButton getEl={() => ref.current} title={title} />
       </div>
-      <div ref={ref} data-image-name={filename} data-legend="1" className="overflow-hidden" />
+      <div ref={ref} data-image-name={filename} data-legend="1" className={`${compact ? 'h-[340px]' : 'h-[440px]'} overflow-hidden`} />
     </div>
   )
 }

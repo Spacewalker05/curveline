@@ -140,7 +140,12 @@ export function ThemeButton({ dark, setDark }: { dark: boolean; setDark: (v: boo
   )
 }
 
-export const Brand = () => <span className="text-xl font-bold tracking-tight">JV Analyzer</span>
+export const Brand = ({ onClick }: { onClick?: () => void }) =>
+  onClick ? (
+    <button onClick={onClick} title="Back to home" className={`text-xl font-bold tracking-tight rounded-md px-1 -mx-1 hover:text-accent cursor-pointer ${tr}`}>JV Analyzer</button>
+  ) : (
+    <span className="text-xl font-bold tracking-tight">JV Analyzer</span>
+  )
 
 export function DropZone({ accept, label, onFiles }: { accept: string; label: string; onFiles: (f: File[]) => void }) {
   const [drag, setDrag] = useState(false)
@@ -200,8 +205,10 @@ export function FileChips({ names, onRemove }: { names: string[]; onRemove: (i: 
 const asideCls = (open: boolean) =>
   `shrink-0 lg:h-full flex flex-col bg-bg border-line overflow-hidden slide-in transition-[width,opacity] duration-300 ease-out ${open ? 'lg:w-[320px] border-b lg:border-b-0 lg:border-r opacity-100' : 'lg:w-0 h-0 lg:h-full opacity-0 pointer-events-none'}`
 
-export function Shell({ crumb, dark, setDark, onBack, sidebar, action, status, children }: { crumb: string; dark: boolean; setDark: (v: boolean) => void; onBack: () => void; sidebar: ReactNode; action: ReactNode; status: ReactNode; children: ReactNode }) {
-  const [open, setOpen] = useState(true)
+export function Shell({ crumb, dark, setDark, onBack, sidebar, action, status, children, sidePanelOpen, onSidePanelOpenChange }: { crumb: string; dark: boolean; setDark: (v: boolean) => void; onBack: () => void; sidebar: ReactNode; action: ReactNode; status: ReactNode; children: ReactNode; sidePanelOpen?: boolean; onSidePanelOpenChange?: (open: boolean) => void }) {
+  const [internalOpen, setInternalOpen] = useState(true)
+  const open = sidePanelOpen ?? internalOpen
+  const setOpen = onSidePanelOpenChange ?? setInternalOpen
   const [peek, setPeek] = useState(false)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // While the panel is toggled hidden, hovering the toggle (or the panel itself) peeks it open;
@@ -213,7 +220,7 @@ export function Shell({ crumb, dark, setDark, onBack, sidebar, action, status, c
     <div className="h-full flex flex-col bg-bg text-fg">
       <header className="shrink-0 h-16 px-6 flex items-center gap-3.5 bg-bg border-b border-line">
         <PanelToggle open={open} onClick={() => { clearTimeout(closeTimer.current); setPeek(false); setOpen(!open) }} onPeekEnter={openPeek} onPeekLeave={closePeek} />
-        <Brand />
+        <Brand onClick={onBack} />
         <span className="text-dim">/</span>
         <div className="text-sm text-muted">{crumb}</div>
         <div className="ml-auto">

@@ -7,9 +7,9 @@ import { plotImageName } from './plot-export'
 import { card, Check, cv, minorTicks, DropZone, FileChips, primaryBtn, Section, sectionLabel, Shell, Toggle, tr, Analysing, withMinDuration } from './ui'
 
 type Series = { sample: string; labels: string[]; fwd: (number | null)[]; rev: (number | null)[] | null }
-type Block = { param: string; series: Series[] }
+export type Block = { param: string; series: Series[] }
 type Dataset = { file: string; labels: string[]; cols: Record<string, (number | null)[]>; blocks: Block[] }
-type Opts = { meanLine: boolean; errBars: boolean; grid: boolean; size: number }
+export type Opts = { meanLine: boolean; errBars: boolean; grid: boolean; size: number }
 
 const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length
 const std = (a: number[]) => {
@@ -242,10 +242,10 @@ function PngButton({ onClick, getEl, title }: { onClick: () => void; getEl: () =
   )
 }
 
-type Kind = 'fwd' | 'rev' | 'both'
+export type Kind = 'fwd' | 'rev' | 'both'
 const KIND_LABEL: Record<Kind, string> = { fwd: 'Forward', rev: 'Reverse', both: 'Forward + Reverse' }
 
-function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: Block; kind: Kind; opts: Opts; dark: boolean }) {
+export function PairedFigure({ file, block, kind, opts, dark }: { file: string; block: Block; kind: Kind; opts: Opts; dark: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const title = `${file} · ${block.param} · ${KIND_LABEL[kind]}`
   const filename = plotImageName(block.param, file, kind === 'both' ? undefined : KIND_LABEL[kind])
