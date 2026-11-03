@@ -203,7 +203,7 @@ export function FileChips({ names, onRemove }: { names: string[]; onRemove: (i: 
 }
 
 const asideCls = (open: boolean) =>
-  `shrink-0 lg:h-full flex flex-col bg-bg border-line overflow-hidden slide-in transition-[width,opacity] duration-300 ease-out ${open ? 'lg:w-[320px] border-b lg:border-b-0 lg:border-r opacity-100' : 'lg:w-0 h-0 lg:h-full opacity-0 pointer-events-none'}`
+  `shrink-0 min-h-0 max-h-[45%] lg:max-h-none lg:h-full flex flex-col bg-bg border-line overflow-hidden slide-in transition-[width,opacity] duration-300 ease-out ${open ? 'lg:w-[320px] border-b lg:border-b-0 lg:border-r opacity-100' : 'lg:w-0 h-0 lg:h-full opacity-0 pointer-events-none'}`
 
 export function Shell({ crumb, dark, setDark, onBack, sidebar, action, status, children, sidePanelOpen, onSidePanelOpenChange }: { crumb: string; dark: boolean; setDark: (v: boolean) => void; onBack: () => void; sidebar: ReactNode; action: ReactNode; status: ReactNode; children: ReactNode; sidePanelOpen?: boolean; onSidePanelOpenChange?: (open: boolean) => void }) {
   const [internalOpen, setInternalOpen] = useState(true)
@@ -217,7 +217,7 @@ export function Shell({ crumb, dark, setDark, onBack, sidebar, action, status, c
   const closePeek = () => { closeTimer.current = setTimeout(() => setPeek(false), 200) }
   const shown = open || peek
   return (
-    <div className="h-full flex flex-col bg-bg text-fg">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col bg-bg text-fg">
       <header className="shrink-0 h-16 px-6 flex items-center gap-3.5 bg-bg border-b border-line">
         <PanelToggle open={open} onClick={() => { clearTimeout(closeTimer.current); setPeek(false); setOpen(!open) }} onPeekEnter={openPeek} onPeekLeave={closePeek} />
         <Brand onClick={onBack} />
@@ -234,14 +234,14 @@ export function Shell({ crumb, dark, setDark, onBack, sidebar, action, status, c
           onMouseLeave={closePeek}
         >
           <div className="flex flex-col flex-1 min-h-0 lg:w-[320px]">
-            <div className="flex-1 overflow-y-auto scroll-quiet px-5 pt-5 pb-4">
+            <div tabIndex={0} aria-label="Analysis settings" className="flex-1 min-h-0 overflow-y-auto workspace-scroll px-5 pt-5 pb-4">
               <BackRow onBack={onBack} />
               {sidebar}
             </div>
-            {action && <div className="p-5 border-t border-line bg-bg">{action}</div>}
+            {action && <div className="shrink-0 p-5 border-t border-line bg-bg">{action}</div>}
           </div>
         </aside>
-        <main className="fade-in flex-1 min-w-0 h-full overflow-y-auto scroll-quiet bg-panel/40 flex flex-col">{children}</main>
+        <main tabIndex={0} aria-label={`${crumb} results`} className="fade-in flex-1 min-w-0 min-h-0 overflow-y-auto workspace-scroll bg-panel/40 flex flex-col">{children}</main>
       </div>
       <footer className="shrink-0 h-8 px-5 flex items-center justify-between bg-surface border-t border-line text-[11px] text-dim">
         <span className="flex items-center gap-2">{status}</span>

@@ -248,3 +248,22 @@ input[type='number'] {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Keep wheel/touch scrolling inside the intended workspace, not its iframe host. */
+.workspace-scroll {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-line) transparent;
+  scrollbar-gutter: stable;
+}
+
+.workspace-scroll > * {
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .smooth-scroll {
+    scroll-behavior: auto;
+  }
+}

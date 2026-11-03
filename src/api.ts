@@ -63,11 +63,18 @@ function startStreamlit() {
     else p.resolve(r.result)
   })
   toStreamlit('streamlit:componentReady', { apiVersion: 1 })
-  let h = 900
-  try {
-    h = Math.max(700, (window.parent as Window).innerHeight - 24)
-  } catch {}
-  toStreamlit('streamlit:setFrameHeight', { height: h })
+  // The host sizes the iframe to 100dvh, including cross-origin deployments.
+  // Keep Streamlit's stored height in sync without a 700px minimum or resize loop.
+  let lastHeight = 0
+  const syncHeight = () => {
+    const height = Math.round(window.innerHeight)
+    if (height <= 0 || height === lastHeight) return
+    lastHeight = height
+    toStreamlit('streamlit:setFrameHeight', { height })
+  }
+  window.addEventListener('resize', syncHeight)
+  window.visualViewport?.addEventListener('resize', syncHeight)
+  syncHeight()
 }
 startStreamlit()
 
