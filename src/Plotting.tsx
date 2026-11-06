@@ -283,6 +283,10 @@ export function PairedFigure({ file, block, kind, opts, dark }: { file: string; 
     return out
   }, [block, kind, multi, cats])
 
+  const tickLabels = multi ? cats.map((c) => c.label) : []
+  const longest = Math.max(0, ...tickLabels.map((t) => t.length), ...(multi ? block.series.map((x) => x.sample.length) : []))
+  const angled = multi && (cats.length > 6 || longest > 18)
+  const extraH = multi ? Math.min(260, Math.max(0, longest - 8) * (angled ? 6 : 4)) : 0
   const width = multi ? Math.max(1100, cats.length * 140) : Math.min(4000, Math.max(1400, entries.length * 22))
 
   useEffect(() => {
@@ -311,7 +315,7 @@ export function PairedFigure({ file, block, kind, opts, dark }: { file: string; 
           paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff', showlegend: false,
           margin: { l: 84, r: 28, t: 28, b: 64 }, font: { family: 'Arial, sans-serif', color: '#171717' },
           hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
-          xaxis: { ...originAxis(), showgrid: false, tickmode: 'array', tickvals: cats.map((_, i) => i), ticktext: cats.map((c) => c.label), range: [-0.6, cats.length - 0.4] },
+          xaxis: { ...originAxis(), showgrid: false, tickmode: 'array', tickvals: cats.map((_, i) => i), ticktext: cats.map((c) => wrapTick(c.label)), tickangle: angled ? -40 : 0, automargin: true, tickfont: { size: 11 }, range: [-0.6, cats.length - 0.4] },
           yaxis: { ...originAxis(block.param), showgrid: opts.grid, gridcolor: '#dddddd', minor: minorTicks('#171717') },
         },
         { displaylogo: false, responsive: true, displayModeBar: false, toImageButtonOptions: { filename, scale: 2 } },
@@ -356,7 +360,7 @@ export function PairedFigure({ file, block, kind, opts, dark }: { file: string; 
     let tickvals: number[], ticktext: string[], range: [number, number]
     if (multi) {
       tickvals = block.series.map((_, i) => i)
-      ticktext = block.series.map((s) => s.sample)
+      ticktext = block.series.map((s) => wrapTick(s.sample))
       range = [-0.6, block.series.length - 0.4]
     } else {
       const step = total <= 30 ? 1 : Math.ceil(total / 16)
@@ -376,12 +380,12 @@ export function PairedFigure({ file, block, kind, opts, dark }: { file: string; 
         legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.14, font: { size: 11, color: fg } },
         hoverlabel: { bgcolor: cv('--c-panel'), bordercolor: line, font: { family: 'JetBrains Mono', size: 12, color: fg } },
         annotations: [{ text: block.param, xref: 'paper', yref: 'paper', x: 0, y: 1.02, xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 12, color: muted } }],
-        xaxis: { ...originAxis(), showgrid: false, tickmode: 'array', tickvals, ticktext, tickangle: 0, range },
+        xaxis: { ...originAxis(), showgrid: false, tickmode: 'array', tickvals, ticktext, tickangle: angled ? -40 : 0, automargin: true, range },
         yaxis: { ...originAxis(block.param), showgrid: opts.grid, gridcolor: '#dddddd', minor: minorTicks('#171717') },
       },
       { displaylogo: false, responsive: true, displayModeBar: false, toImageButtonOptions: { filename, scale: 2 } },
     )
-  }, [entries, opts, dark, kind, multi, block, cats, filename])
+  }, [entries, opts, dark, kind, multi, block, cats, filename, angled])
 
   useEffect(() => {
     const el = ref.current
@@ -392,7 +396,7 @@ export function PairedFigure({ file, block, kind, opts, dark }: { file: string; 
 
   const png = async () => {
     await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
-    await Plotly.downloadImage(ref.current, { format: 'png', width, height: 800, scale: 2, filename })
+    await Plotly.downloadImage(ref.current, { format: 'png', width, height: 800 + extraH, scale: 2, filename })
     await Plotly.relayout(ref.current, { paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff' })
   }
 
@@ -407,7 +411,7 @@ export function PairedFigure({ file, block, kind, opts, dark }: { file: string; 
         </div>
         <PngButton onClick={png} getEl={() => ref.current} title={title} />
       </div>
-      <div ref={ref} data-plot={filename} data-image-name={filename} data-w={width} className="w-full h-[400px]" />
+      <div ref={ref} data-plot={filename} data-image-name={filename} data-w={width} data-h={800 + extraH} className="w-full" style={{ height: 400 + extraH }} />
     </div>
   )
 }
@@ -565,4 +569,17 @@ export default function Plotting({ onBack, dark, setDark }: { onBack: () => void
       </div>
     </Shell>
   )
+}
+
+/** Break long sample names over lines so plot labels stay readable in full. */
+function wrapTick(label: string, max = 16) {
+  const words = label.split(/(?<=[\s,_-])/)
+  const lines: string[] = []
+  let cur = ''
+  for (const w of words) {
+    if (cur && (cur + w).length > max) { lines.push(cur.trim()); cur = '' }
+    cur += w
+  }
+  if (cur) lines.push(cur.trim())
+  return lines.join('<br>')
 }

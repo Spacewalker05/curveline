@@ -90,9 +90,9 @@ export default function Dashboard({ onBack, dark, setDark }: { onBack: () => voi
   }, [allRes, plotParams])
   const plotOpts = useMemo(() => ({ meanLine: true, errBars: true, grid, size: 10 }), [grid])
   const plotFile = loaded.length === 1 ? stem(loaded[0].name) : 'samples'
-  const downloadPlots = async () => {
+  const downloadPlots = async (format: 'png' | 'svg' = 'png') => {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>('#dash-multi [data-plot]'))) {
-      await Plotly.downloadImage(el, { format: 'png', width: +(el.dataset.w || 1400), height: 800, scale: 2, filename: el.dataset.plot || 'plot' })
+      await Plotly.downloadImage(el, { format, width: +(el.dataset.w || 1400), height: +(el.dataset.h || 800), scale: format === 'png' ? 4 : 1, filename: el.dataset.plot || 'plot' })
       await new Promise((r) => setTimeout(r, 250))
     }
   }
@@ -165,8 +165,8 @@ export default function Dashboard({ onBack, dark, setDark }: { onBack: () => voi
           <Section title="Sample Plots" />
           <div className="grid grid-cols-3 gap-1.5">
             {(['fwd', 'rev', 'both'] as Kind[]).map((k) => {
-              const on = plotKinds.includes(k)
-              return <button key={k} onClick={() => setPlotKinds((x) => on ? x.filter((y) => y !== k) : [...x, k])} className={`h-8 rounded-lg border text-xs font-medium cursor-pointer ${tr} ${on ? 'bg-accent border-accent text-on-accent' : 'border-line text-fg hover:border-accent'}`}>{k === 'fwd' ? 'Forward' : k === 'rev' ? 'Reverse' : 'Both'}</button>
+              const on = plotKinds.length === 1 && plotKinds[0] === k
+              return <button key={k} onClick={() => setPlotKinds([k])} className={`h-8 rounded-lg border text-xs font-medium cursor-pointer ${tr} ${on ? 'bg-accent border-accent text-on-accent' : 'border-line text-fg hover:border-accent'}`}>{k === 'fwd' ? 'Forward' : k === 'rev' ? 'Reverse' : 'Both'}</button>
             })}
           </div>
           <div className="space-y-2.5 mt-3">
@@ -200,7 +200,13 @@ export default function Dashboard({ onBack, dark, setDark }: { onBack: () => voi
     <Shell crumb="Dashboard" dark={dark} setDark={setDark} onBack={onBack} sidebar={sidebar} sidePanelOpen={panelOpen} onSidePanelOpenChange={setPanelOpen}
       action={<div className="space-y-2">
         <Button onClick={run} disabled={busy || !files.length} className={primaryBtn}>{busy ? 'Analysing…' : 'Run analysis'}</Button>
-        {blocks.length > 0 && <Button variant="outline" onClick={downloadPlots} className="w-full">↓ Download sample plots</Button>}
+        {blocks.length > 0 && <div className="space-y-1.5">
+          <div className="text-xs text-muted">Export {plotKinds[0] === 'fwd' ? 'Forward' : plotKinds[0] === 'rev' ? 'Reverse' : 'Both'} plots</div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={() => downloadPlots('png')}>↓ PNG (4×)</Button>
+            <Button variant="outline" onClick={() => downloadPlots('svg')}>↓ SVG</Button>
+          </div>
+        </div>}
       </div>}
       status={<>{busy ? 'Calculating…' : loaded.length ? `${loaded.length} file(s) analysed` : files.length ? `${files.length} file(s) ready` : 'No files'}</>}>
       <div className="p-6 lg:p-8 space-y-5 max-w-[1200px] w-full mx-auto">
